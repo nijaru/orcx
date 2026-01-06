@@ -1,17 +1,15 @@
+## Done
+
+- [x] Config management - API keys, defaults [src/orcx/config.py]
+
 ## Ready
 
-- [ ] Agent registry - YAML config load/save [src/orcx/registry.py]
-- [ ] Provider routing - litellm Router integration [src/orcx/router.py]
-- [ ] `orcx run` implementation - actual LLM calls [src/orcx/cli.py]
-- [ ] Config management - API keys, defaults [src/orcx/config.py]
-- [ ] models.dev integration - model metadata [src/orcx/models.py]
-- [ ] Cost tracking - usage/spend per agent [src/orcx/tracking.py]
-- [ ] Test setup - pytest, basic coverage [tests/]
+- [ ] Agent registry - YAML config load/save [tk-i4sp]
+- [ ] Provider routing - litellm Router integration [tk-rs2u]
+- [ ] Wire orcx run - actual LLM calls [tk-g13j]
+- [ ] Cost tracking - usage/spend per agent [tk-d3zz]
+- [ ] Test setup - pytest basics [tk-6gx1]
 
-## In Progress
+## Backlog
 
-- [ ]
-
-## Blocked
-
-- [ ]
+- [ ] models.dev integration - model metadata

@@ -1,0 +1,19 @@
+{
+  "project": "tk",
+  "ref": "g13j",
+  "title": "Wire orcx run - actual LLM calls",
+  "description": null,
+  "status": "open",
+  "priority": 3,
+  "labels": [],
+  "assignees": [],
+  "parent": null,
+  "blocked_by": [],
+  "estimate": null,
+  "due_date": null,
+  "logs": [],
+  "created_at": "2026-01-06T05:14:19.986Z",
+  "updated_at": "2026-01-06T05:14:19.986Z",
+  "completed_at": null,
+  "external": {}
+}

@@ -1,0 +1,19 @@
+{
+  "project": "tk",
+  "ref": "i4sp",
+  "title": "Agent registry - YAML config load/save",
+  "description": null,
+  "status": "done",
+  "priority": 3,
+  "labels": [],
+  "assignees": [],
+  "parent": null,
+  "blocked_by": [],
+  "estimate": null,
+  "due_date": null,
+  "logs": [],
+  "created_at": "2026-01-06T05:14:17.858Z",
+  "updated_at": "2026-01-06T05:20:39.046Z",
+  "completed_at": "2026-01-06T05:20:39.046Z",
+  "external": {}
+}

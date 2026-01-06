@@ -23,7 +23,21 @@ def run(
 @app.command()
 def agents() -> None:
     """List configured agents."""
-    typer.echo("No agents configured yet.")
+    from orcx.registry import load_registry
+
+    registry = load_registry()
+    names = registry.list_names()
+
+    if not names:
+        typer.echo("No agents configured.")
+        typer.echo("Add agents to: ~/.config/orcx/agents.yaml")
+        return
+
+    for name in names:
+        agent = registry.get(name)
+        if agent:
+            desc = f" - {agent.description}" if agent.description else ""
+            typer.echo(f"{name}: {agent.model}{desc}")
 
 
 @app.command()
