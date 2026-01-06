@@ -76,8 +76,8 @@ default_model: openrouter/deepseek/deepseek-v3.2
 
 # Model aliases for shorthand
 aliases:
-  deepseek: openrouter/deepseek/deepseek-v3.2
-  sonnet: openrouter/anthropic/claude-4.5-sonnet
+  deepseek: deepseek/deepseek-v3.2
+  sonnet: anthropic/claude-4.5-sonnet
 
 # API keys (env vars take precedence)
 keys:
@@ -95,7 +95,7 @@ agents:
     max_tokens: 4096
 
   reviewer:
-    model: openrouter/anthropic/claude-4.5-sonnet
+    model: anthropic/claude-4.5-sonnet
     system_prompt: You are a code reviewer. Be concise and actionable.
 
   # With OpenRouter provider preferences
