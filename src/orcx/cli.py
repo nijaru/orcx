@@ -210,22 +210,17 @@ def agents() -> None:
 
 @app.command()
 def models() -> None:
-    """List available models from litellm."""
-
-    typer.echo("Common models (via litellm):")
+    """Show model format and provider links."""
+    typer.echo("Model format: provider/model-name")
     typer.echo()
-    common = [
-        ("openrouter/deepseek/deepseek-v3.2", "fast, cheap"),
-        ("openrouter/anthropic/claude-sonnet-4", "balanced"),
-        ("openrouter/openai/gpt-4.1", ""),
-        ("openrouter/google/gemini-2.5-flash", ""),
-        ("openrouter/meta-llama/llama-4-maverick", ""),
-    ]
-    for model, desc in common:
-        suffix = f"  # {desc}" if desc else ""
-        typer.echo(f"  {model}{suffix}")
+    typer.echo("Examples:")
+    typer.echo("  openrouter/deepseek/deepseek-chat")
+    typer.echo("  anthropic/claude-3-5-sonnet-20241022")
+    typer.echo("  openai/gpt-4o")
     typer.echo()
-    typer.echo("See: https://openrouter.ai/models")
+    typer.echo("Browse models:")
+    typer.echo("  https://openrouter.ai/models")
+    typer.echo("  https://docs.litellm.ai/docs/providers")
 
 
 if __name__ == "__main__":

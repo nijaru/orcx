@@ -1,6 +1,6 @@
 ## Decisions Log
 
-### 2025-01-05: Python + litellm over Bun/TS
+### 2026-01-05: Python + litellm over Bun/TS
 
 **Context:** Choosing implementation language for LLM orchestrator
 
@@ -22,7 +22,7 @@
 
 ---
 
-### 2025-01-05: Name "orcx" (orchestrator)
+### 2026-01-05: Name "orcx" (orchestrator)
 
 **Context:** CLI tool name selection
 

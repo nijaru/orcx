@@ -2,6 +2,16 @@
 
 LLM orchestrator - route prompts to any model via [litellm](https://github.com/BerriAI/litellm).
 
+> **Alpha** - Core functionality works, API may change.
+
+## Why orcx?
+
+- **100+ providers** via litellm - OpenRouter, OpenAI, Anthropic, Google, etc.
+- **Agent presets** - Save model + system prompt + parameters as reusable configs
+- **OpenRouter routing** - Control quantization, provider selection, sorting
+- **Cost tracking** - See what each request costs
+- **Simple** - Just route prompts, not a full agent framework
+
 ## Install
 
 ```bash
@@ -10,20 +20,36 @@ uv tool install orcx
 pip install orcx
 ```
 
+## Quick Start
+
+```bash
+# Set your API key
+export OPENROUTER_API_KEY=sk-or-...
+
+# Run a prompt
+orcx run -m openrouter/deepseek/deepseek-chat "hello"
+
+# With file context
+orcx run -m openrouter/deepseek/deepseek-chat -f code.py "review this"
+
+# Show cost
+orcx run -m openrouter/deepseek/deepseek-chat "hello" --cost
+```
+
 ## Usage
 
 ```bash
-# Direct model
-orcx run -m openrouter/deepseek/deepseek-v3.2 "hello"
+# Direct model (provider/model format)
+orcx run -m openrouter/deepseek/deepseek-chat "hello"
 
-# Using model alias
+# Using model alias (if configured)
 orcx run -m deepseek "hello"
 
 # Using agent preset
-orcx run -a fast "summarize this"
+orcx run -a reviewer "review this code"
 
 # With file context
-orcx run -a reviewer -f src/main.py "review this code"
+orcx run -a reviewer -f src/main.py "review this"
 
 # Multiple files
 orcx run -m deepseek -f code.py -f tests.py "explain the tests"
@@ -31,11 +57,8 @@ orcx run -m deepseek -f code.py -f tests.py "explain the tests"
 # Pipe from stdin
 cat code.py | orcx run -a reviewer "review this"
 
-# Show cost after response
-orcx run -a fast "hello" --cost
-
 # JSON output (includes usage/cost)
-orcx run -a fast "hello" --json
+orcx run -m deepseek "hello" --json
 
 # Custom system prompt
 orcx run -m deepseek -s "You are a pirate" "greet me"
@@ -49,18 +72,15 @@ Config location: `~/.config/orcx/`
 
 ```yaml
 # Default model (used when no -m or -a specified)
-default_model: openrouter/deepseek/deepseek-v3.2
+default_model: openrouter/deepseek/deepseek-chat
 
 # Model aliases for shorthand
 aliases:
-  deepseek: openrouter/deepseek/deepseek-v3.2
-  claude: anthropic/claude-sonnet-4
-  gpt4: openai/gpt-4o
+  deepseek: openrouter/deepseek/deepseek-chat
 
 # API keys (env vars take precedence)
 keys:
   openrouter: sk-or-...
-  anthropic: sk-ant-...
 ```
 
 ### agents.yaml
@@ -68,21 +88,21 @@ keys:
 ```yaml
 agents:
   fast:
-    model: openrouter/deepseek/deepseek-v3.2
+    model: openrouter/deepseek/deepseek-chat
     description: Fast, cheap reasoning
     temperature: 0.7
     max_tokens: 4096
 
   reviewer:
-    model: openrouter/anthropic/claude-sonnet-4
-    system_prompt: You are a code reviewer. Be concise.
+    model: openrouter/deepseek/deepseek-chat
+    system_prompt: You are a code reviewer. Be concise and actionable.
 
   # With OpenRouter provider preferences
   quality:
-    model: openrouter/deepseek/deepseek-v3.2
+    model: openrouter/deepseek/deepseek-chat
     provider_prefs:
       min_bits: 8 # fp8+ only (excludes fp4)
-      ignore: [deepinfra] # blacklist providers
+      ignore: [DeepInfra] # blacklist providers
       prefer: [Together] # soft preference
       sort: throughput # or: price, latency
 ```
@@ -129,7 +149,7 @@ orcx --debug             # Show full tracebacks on error
 
 ## Environment Variables
 
-API keys are loaded from standard env vars (take precedence over config file):
+API keys loaded from env vars (take precedence over config file):
 
 - `OPENROUTER_API_KEY`
 - `OPENAI_API_KEY`
@@ -139,6 +159,13 @@ API keys are loaded from standard env vars (take precedence over config file):
 - `MISTRAL_API_KEY`
 - `GROQ_API_KEY`
 - `TOGETHER_API_KEY`
+
+## Model Format
+
+Models use `provider/model-name` format. See your provider's docs for available models:
+
+- [OpenRouter models](https://openrouter.ai/models)
+- [litellm providers](https://docs.litellm.ai/docs/providers)
 
 ## License
 

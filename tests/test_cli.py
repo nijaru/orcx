@@ -57,16 +57,14 @@ class TestModelsCommand:
         """orcx models should run without error."""
         result = runner.invoke(app, ["models"])
         assert result.exit_code == 0
-        # Check for common model listing output
-        assert "common models" in result.stdout.lower()
+        assert "model format" in result.stdout.lower()
 
     def test_models_lists_common_models(self) -> None:
-        """orcx models should show common model examples."""
+        """orcx models should show example models and links."""
         result = runner.invoke(app, ["models"])
         assert result.exit_code == 0
-        # Check that models from at least a couple providers are listed
-        assert "deepseek" in result.stdout.lower()
-        assert "anthropic" in result.stdout.lower() or "claude" in result.stdout.lower()
+        assert "openrouter" in result.stdout.lower()
+        assert "litellm" in result.stdout.lower()
 
 
 class TestRunCommand:
