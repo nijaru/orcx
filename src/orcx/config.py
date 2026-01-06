@@ -32,6 +32,7 @@ class OrcxConfig(BaseModel):
     default_agent: str | None = None
     default_model: str | None = None
     keys: ProviderKeys = Field(default_factory=ProviderKeys)
+    aliases: dict[str, str] = Field(default_factory=dict)  # model shortcuts
 
 
 ENV_KEY_MAP: dict[str, str] = {

@@ -102,6 +102,28 @@ def _handle_error(e: Exception) -> None:
     raise typer.Exit(1) from None
 
 
+def _read_files(paths: list[str]) -> str:
+    """Read and format file contents for context."""
+    from pathlib import Path
+
+    parts = []
+    for path_str in paths:
+        path = Path(path_str)
+        if not path.exists():
+            typer.echo(f"Error: File not found: {path_str}", err=True)
+            raise typer.Exit(1)
+        if not path.is_file():
+            typer.echo(f"Error: Not a file: {path_str}", err=True)
+            raise typer.Exit(1)
+        try:
+            content = path.read_text()
+            parts.append(f"# {path.name}\n```\n{content}\n```")
+        except Exception as e:
+            typer.echo(f"Error reading {path_str}: {e}", err=True)
+            raise typer.Exit(1) from None
+    return "\n\n".join(parts)
+
+
 @app.command()
 def run(
     prompt: str = typer.Argument(None, help="Prompt to send"),
@@ -109,6 +131,10 @@ def run(
     model: str = typer.Option(None, "--model", "-m", help="Model to use directly"),
     system: str = typer.Option(None, "--system", "-s", help="System prompt"),
     context: str = typer.Option(None, "--context", help="Context to prepend"),
+    files: Annotated[
+        list[str] | None,
+        typer.Option("--file", "-f", help="Files to include"),
+    ] = None,
     no_stream: bool = typer.Option(False, "--no-stream", help="Disable streaming"),
     show_cost: bool = typer.Option(False, "--cost", help="Show cost after response"),
     json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
@@ -127,6 +153,11 @@ def run(
     if not prompt:
         typer.echo("Error: Empty prompt", err=True)
         raise typer.Exit(1)
+
+    # Build context from files
+    if files:
+        file_context = _read_files(files)
+        context = f"{context}\n\n{file_context}" if context else file_context
 
     request = OrcxRequest(
         prompt=prompt,

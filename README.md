@@ -16,22 +16,52 @@ pip install orcx
 # Direct model
 orcx run -m openrouter/deepseek/deepseek-v3.2 "hello"
 
+# Using model alias
+orcx run -m deepseek "hello"
+
 # Using agent preset
 orcx run -a fast "summarize this"
 
-# Pipe from stdin
-cat code.py | orcx run -a reviewer "review this code"
+# With file context
+orcx run -a reviewer -f src/main.py "review this code"
 
-# Show cost
+# Multiple files
+orcx run -m deepseek -f code.py -f tests.py "explain the tests"
+
+# Pipe from stdin
+cat code.py | orcx run -a reviewer "review this"
+
+# Show cost after response
 orcx run -a fast "hello" --cost
 
-# JSON output
+# JSON output (includes usage/cost)
 orcx run -a fast "hello" --json
+
+# Custom system prompt
+orcx run -m deepseek -s "You are a pirate" "greet me"
 ```
 
 ## Configuration
 
 Config location: `~/.config/orcx/`
+
+### config.yaml
+
+```yaml
+# Default model (used when no -m or -a specified)
+default_model: openrouter/deepseek/deepseek-v3.2
+
+# Model aliases for shorthand
+aliases:
+  deepseek: openrouter/deepseek/deepseek-v3.2
+  claude: anthropic/claude-sonnet-4
+  gpt4: openai/gpt-4o
+
+# API keys (env vars take precedence)
+keys:
+  openrouter: sk-or-...
+  anthropic: sk-ant-...
+```
 
 ### agents.yaml
 
@@ -47,7 +77,7 @@ agents:
     model: openrouter/anthropic/claude-sonnet-4
     system_prompt: You are a code reviewer. Be concise.
 
-  # With provider preferences (OpenRouter)
+  # With OpenRouter provider preferences
   quality:
     model: openrouter/deepseek/deepseek-v3.2
     provider_prefs:
@@ -55,15 +85,6 @@ agents:
       ignore: [deepinfra] # blacklist providers
       prefer: [Together] # soft preference
       sort: throughput # or: price, latency
-```
-
-### config.yaml
-
-```yaml
-default_model: openrouter/deepseek/deepseek-v3.2
-# API keys loaded from env vars first, then this file
-keys:
-  openrouter: sk-or-...
 ```
 
 ## Provider Preferences
@@ -84,22 +105,40 @@ OpenRouter-specific routing options:
 ## Commands
 
 ```bash
-orcx run "prompt"        # run prompt
-orcx agents              # list configured agents
-orcx models              # list common models
-orcx --version           # show version
+orcx run "prompt"        # Run prompt (uses default model/agent)
+orcx run -m MODEL "..."  # Use specific model or alias
+orcx run -a AGENT "..."  # Use agent preset
+orcx agents              # List configured agents
+orcx models              # List common models
+orcx --version           # Show version
+orcx --debug             # Show full tracebacks on error
 ```
+
+## CLI Options
+
+| Option        | Short | Description                   |
+| ------------- | ----- | ----------------------------- |
+| `--model`     | `-m`  | Model or alias to use         |
+| `--agent`     | `-a`  | Agent preset to use           |
+| `--system`    | `-s`  | System prompt                 |
+| `--context`   |       | Context to prepend            |
+| `--file`      | `-f`  | Files to include (repeatable) |
+| `--no-stream` |       | Disable streaming output      |
+| `--cost`      |       | Show cost after response      |
+| `--json`      | `-j`  | Output as JSON                |
 
 ## Environment Variables
 
-API keys are loaded from standard env vars:
+API keys are loaded from standard env vars (take precedence over config file):
 
 - `OPENROUTER_API_KEY`
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `DEEPSEEK_API_KEY`
 - `GOOGLE_API_KEY`
-- etc.
+- `MISTRAL_API_KEY`
+- `GROQ_API_KEY`
+- `TOGETHER_API_KEY`
 
 ## License
 

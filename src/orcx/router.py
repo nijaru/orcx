@@ -36,11 +36,18 @@ def validate_model_format(model: str) -> None:
         raise InvalidModelFormatError(model)
 
 
+def expand_alias(model: str) -> str:
+    """Expand model alias if configured."""
+    config = load_config()
+    return config.aliases.get(model, model)
+
+
 def resolve_model(request: OrcxRequest) -> tuple[str, AgentConfig | None]:
     """Resolve model from request, checking agent config if specified."""
     if request.model:
-        validate_model_format(request.model)
-        return request.model, None
+        model = expand_alias(request.model)
+        validate_model_format(model)
+        return model, None
 
     if request.agent:
         registry = load_registry()

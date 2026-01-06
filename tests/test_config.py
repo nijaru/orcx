@@ -123,3 +123,26 @@ class TestResolveKeys:
 
         resolved = _resolve_keys(file_keys)
         assert resolved.openai is None
+
+
+class TestAliases:
+    """Tests for model alias expansion."""
+
+    def test_aliases_parsed_from_config(self, temp_config_dir) -> None:
+        """Aliases should be parsed from config file."""
+        config_file = temp_config_dir / "config.yaml"
+        config_file.write_text("""
+aliases:
+  deepseek: openrouter/deepseek/deepseek-v3.2
+  claude: anthropic/claude-sonnet-4
+""")
+        config = load_config()
+        assert config.aliases == {
+            "deepseek": "openrouter/deepseek/deepseek-v3.2",
+            "claude": "anthropic/claude-sonnet-4",
+        }
+
+    def test_aliases_empty_by_default(self, temp_config_dir) -> None:
+        """Aliases should default to empty dict."""
+        config = load_config()
+        assert config.aliases == {}
