@@ -1,9 +1,9 @@
 {
-  "project": "tk",
-  "ref": "g13j",
-  "title": "Wire orcx run - actual LLM calls",
+  "project": "orcx",
+  "ref": "62xg",
+  "title": "MVP: router + run command + publish 0.0.1",
   "description": null,
-  "status": "open",
+  "status": "active",
   "priority": 3,
   "labels": [],
   "assignees": [],
@@ -12,8 +12,8 @@
   "estimate": null,
   "due_date": null,
   "logs": [],
-  "created_at": "2026-01-06T05:14:19.986Z",
-  "updated_at": "2026-01-06T05:14:19.986Z",
+  "created_at": "2026-01-06T06:51:17.505Z",
+  "updated_at": "2026-01-06T06:51:21.940Z",
   "completed_at": null,
   "external": {}
 }

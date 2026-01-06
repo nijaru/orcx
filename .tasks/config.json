@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "project": "orcx",
+  "defaults": {
+    "priority": 3,
+    "labels": [],
+    "assignees": []
+  },
+  "aliases": {},
+  "auto_project": false
+}

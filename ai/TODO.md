@@ -1,15 +1,19 @@
 ## Done
 
 - [x] Config management - API keys, defaults [src/orcx/config.py]
+- [x] Agent registry - YAML config load/save [src/orcx/registry.py]
+- [x] Provider routing - litellm integration [src/orcx/router.py]
+- [x] Wire orcx run - actual LLM calls [src/orcx/cli.py]
+- [x] Provider preferences - OpenRouter quantization, routing
+- [x] --version flag
+- [x] README with examples
 
 ## Ready
 
-- [ ] Agent registry - YAML config load/save [tk-i4sp]
-- [ ] Provider routing - litellm Router integration [tk-rs2u]
-- [ ] Wire orcx run - actual LLM calls [tk-g13j]
-- [ ] Cost tracking - usage/spend per agent [tk-d3zz]
-- [ ] Test setup - pytest basics [tk-6gx1]
+- [ ] Test setup - pytest basics
+- [ ] Conversation support (design: ai/design/conversations.md)
 
 ## Backlog
 
 - [ ] models.dev integration - model metadata
+- [ ] Better error messages

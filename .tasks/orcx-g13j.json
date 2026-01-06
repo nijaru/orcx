@@ -1,7 +1,7 @@
 {
-  "project": "tk",
-  "ref": "rs2u",
-  "title": "Provider routing - litellm Router integration",
+  "project": "orcx",
+  "ref": "g13j",
+  "title": "Wire orcx run - actual LLM calls",
   "description": null,
   "status": "open",
   "priority": 3,
@@ -12,8 +12,8 @@
   "estimate": null,
   "due_date": null,
   "logs": [],
-  "created_at": "2026-01-06T05:14:19.162Z",
-  "updated_at": "2026-01-06T05:14:19.162Z",
+  "created_at": "2026-01-06T05:14:19.986Z",
+  "updated_at": "2026-01-06T05:14:19.986Z",
   "completed_at": null,
   "external": {}
 }
