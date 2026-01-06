@@ -31,5 +31,5 @@ target-version = "py314"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 
-[tool.ty]
+[tool.ty.environment]
 python-version = "3.14"
