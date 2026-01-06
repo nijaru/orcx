@@ -4,7 +4,9 @@ import os
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+
+from orcx.errors import ConfigFileError
 
 CONFIG_DIR = Path.home() / ".config" / "orcx"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
@@ -49,9 +51,34 @@ def load_config() -> OrcxConfig:
     config = OrcxConfig()
 
     if CONFIG_FILE.exists():
-        with CONFIG_FILE.open() as f:
-            data = yaml.safe_load(f) or {}
-        config = OrcxConfig.model_validate(data)
+        try:
+            with CONFIG_FILE.open() as f:
+                data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            raise ConfigFileError(
+                f"Invalid YAML in config file: {CONFIG_FILE}",
+                details=str(e),
+            ) from e
+
+        if data is None:
+            data = {}
+
+        if not isinstance(data, dict):
+            raise ConfigFileError(
+                f"Config file must be a YAML mapping: {CONFIG_FILE}",
+                details=f"Got {type(data).__name__} instead",
+            )
+
+        try:
+            config = OrcxConfig.model_validate(data)
+        except ValidationError as e:
+            errors = "; ".join(
+                f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors()
+            )
+            raise ConfigFileError(
+                f"Invalid config file format: {CONFIG_FILE}",
+                details=errors,
+            ) from e
 
     config.keys = _resolve_keys(config.keys)
     return config

@@ -1,38 +1,68 @@
 """LLM routing via litellm."""
 
+import contextlib
 from collections.abc import Iterator
 
 import litellm
 
-from orcx.config import load_config
+from orcx.config import ENV_KEY_MAP, load_config
+from orcx.errors import (
+    AgentNotFoundError,
+    AuthenticationError,
+    ConnectionError,
+    InvalidModelFormatError,
+    NoModelSpecifiedError,
+    RateLimitError,
+)
 from orcx.registry import load_registry
 from orcx.schema import AgentConfig, OrcxRequest, OrcxResponse
 
 litellm.suppress_debug_info = True  # type: ignore[assignment]
 
 
+def extract_provider(model: str) -> str:
+    """Extract provider name from model string."""
+    if "/" in model:
+        return model.split("/")[0]
+    return "unknown"
+
+
+def validate_model_format(model: str) -> None:
+    """Validate model string format (provider/model-name)."""
+    if "/" not in model:
+        raise InvalidModelFormatError(model)
+    parts = model.split("/", 1)
+    if not parts[0] or not parts[1]:
+        raise InvalidModelFormatError(model)
+
+
 def resolve_model(request: OrcxRequest) -> tuple[str, AgentConfig | None]:
     """Resolve model from request, checking agent config if specified."""
     if request.model:
+        validate_model_format(request.model)
         return request.model, None
 
     if request.agent:
         registry = load_registry()
         agent = registry.get(request.agent)
         if not agent:
-            raise ValueError(f"Agent not found: {request.agent}")
+            available = registry.list_names()
+            raise AgentNotFoundError(request.agent, available)
+        validate_model_format(agent.model)
         return agent.model, agent
 
     config = load_config()
     if config.default_model:
+        validate_model_format(config.default_model)
         return config.default_model, None
     if config.default_agent:
         registry = load_registry()
         agent = registry.get(config.default_agent)
         if agent:
+            validate_model_format(agent.model)
             return agent.model, agent
 
-    raise ValueError("No model specified and no default configured")
+    raise NoModelSpecifiedError()
 
 
 def build_messages(
@@ -108,13 +138,51 @@ def build_params(
     return params
 
 
+def _wrap_litellm_error(e: Exception, model: str) -> Exception:
+    """Convert litellm exceptions to orcx errors."""
+    provider = extract_provider(model)
+    env_var = ENV_KEY_MAP.get(provider)
+
+    if isinstance(e, litellm.AuthenticationError):
+        msg = str(e)
+        if "API key" in msg.lower() or "auth" in msg.lower():
+            from orcx.errors import MissingApiKeyError
+
+            return MissingApiKeyError(provider, env_var)
+        return AuthenticationError(provider, str(e))
+
+    if isinstance(e, litellm.RateLimitError):
+        retry_after = None
+        if hasattr(e, "response") and e.response:
+            retry_after_str = e.response.headers.get("retry-after")
+            if retry_after_str:
+                with contextlib.suppress(ValueError):
+                    retry_after = float(retry_after_str)
+        return RateLimitError(provider, retry_after)
+
+    if isinstance(e, litellm.APIConnectionError):
+        return ConnectionError(provider, str(e))
+
+    if isinstance(e, litellm.APIError):
+        status = getattr(e, "status_code", None)
+        if status and status >= 500:
+            from orcx.errors import ProviderUnavailableError
+
+            return ProviderUnavailableError(provider, status)
+
+    return e
+
+
 def run(request: OrcxRequest) -> OrcxResponse:
     """Execute a single LLM request."""
     model, agent = resolve_model(request)
     messages = build_messages(request, agent)
     params = build_params(request, agent, model, messages, stream=False)
 
-    response = litellm.completion(**params)
+    try:
+        response = litellm.completion(**params)
+    except Exception as e:
+        raise _wrap_litellm_error(e, model) from e
 
     content = response.choices[0].message.content or ""
     usage = None
@@ -131,7 +199,7 @@ def run(request: OrcxRequest) -> OrcxResponse:
     return OrcxResponse(
         content=content,
         model=response.model or model,
-        provider=model.split("/")[0] if "/" in model else "unknown",
+        provider=extract_provider(model),
         usage=usage,
         cost=cost,
     )
@@ -143,6 +211,9 @@ def run_stream(request: OrcxRequest) -> Iterator[str]:
     messages = build_messages(request, agent)
     params = build_params(request, agent, model, messages, stream=True)
 
-    for chunk in litellm.completion(**params):
-        if chunk.choices and chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+    try:
+        for chunk in litellm.completion(**params):
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+    except Exception as e:
+        raise _wrap_litellm_error(e, model) from e

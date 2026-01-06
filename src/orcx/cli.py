@@ -1,13 +1,28 @@
 """CLI entrypoint for orcx."""
 
 import sys
+import traceback
 from typing import Annotated
 
 import typer
 
 from orcx import __version__
+from orcx.errors import (
+    AgentNotFoundError,
+    AuthenticationError,
+    ConfigFileError,
+    ConnectionError,
+    InvalidModelFormatError,
+    MissingApiKeyError,
+    NoModelSpecifiedError,
+    OrcxError,
+    RateLimitError,
+)
 from orcx.registry import load_registry
 from orcx.schema import OrcxRequest
+
+# Global debug flag
+_debug = False
 
 
 def version_callback(value: bool) -> None:
@@ -29,8 +44,62 @@ def main(
         bool,
         typer.Option("--version", "-V", callback=version_callback, is_eager=True),
     ] = False,
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", "-d", help="Show full tracebacks on error"),
+    ] = False,
 ) -> None:
     """LLM orchestrator - route prompts to any model."""
+    global _debug
+    _debug = debug
+
+
+def _handle_error(e: Exception) -> None:
+    """Handle errors with appropriate messages and exit codes."""
+    global _debug
+
+    if _debug:
+        typer.echo(traceback.format_exc(), err=True)
+        raise typer.Exit(1) from None
+
+    if isinstance(e, MissingApiKeyError):
+        typer.echo(f"Error: {e.message}", err=True)
+        raise typer.Exit(2) from None
+
+    if isinstance(e, AuthenticationError):
+        typer.echo(f"Error: {e.message}", err=True)
+        raise typer.Exit(2) from None
+
+    if isinstance(e, RateLimitError):
+        typer.echo(f"Error: {e.message}", err=True)
+        raise typer.Exit(3) from None
+
+    if isinstance(e, ConnectionError):
+        typer.echo(f"Error: {e.message}", err=True)
+        raise typer.Exit(4) from None
+
+    if isinstance(e, AgentNotFoundError):
+        typer.echo(f"Error: {e.message}", err=True)
+        raise typer.Exit(5) from None
+
+    if isinstance(e, InvalidModelFormatError):
+        typer.echo(f"Error: {e.message}", err=True)
+        raise typer.Exit(5) from None
+
+    if isinstance(e, NoModelSpecifiedError):
+        typer.echo(f"Error: {e.message}", err=True)
+        raise typer.Exit(5) from None
+
+    if isinstance(e, ConfigFileError):
+        typer.echo(f"Error: {e.message}", err=True)
+        raise typer.Exit(6) from None
+
+    if isinstance(e, OrcxError):
+        typer.echo(f"Error: {e.message}", err=True)
+        raise typer.Exit(1) from None
+
+    typer.echo(f"Error: {e}", err=True)
+    raise typer.Exit(1) from None
 
 
 @app.command()
@@ -81,18 +150,19 @@ def run(
                 typer.echo(response.content)
                 if show_cost and response.cost:
                     typer.echo(f"\n[cost: ${response.cost:.6f}]", err=True)
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from None
     except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from None
+        _handle_error(e)
 
 
 @app.command()
 def agents() -> None:
     """List configured agents."""
-    registry = load_registry()
+    try:
+        registry = load_registry()
+    except Exception as e:
+        _handle_error(e)
+        return
+
     names = registry.list_names()
 
     if not names:
@@ -114,18 +184,17 @@ def models() -> None:
     typer.echo("Common models (via litellm):")
     typer.echo()
     common = [
-        "anthropic/claude-sonnet-4-20250514",
-        "anthropic/claude-haiku-4-20250514",
-        "openai/gpt-4o",
-        "openai/gpt-4o-mini",
-        "deepseek/deepseek-chat",
-        "deepseek/deepseek-reasoner",
-        "google/gemini-2.0-flash",
+        ("openrouter/deepseek/deepseek-v3.2", "fast, cheap"),
+        ("openrouter/anthropic/claude-sonnet-4", "balanced"),
+        ("openrouter/openai/gpt-4.1", ""),
+        ("openrouter/google/gemini-2.5-flash", ""),
+        ("openrouter/meta-llama/llama-4-maverick", ""),
     ]
-    for m in common:
-        typer.echo(f"  {m}")
+    for model, desc in common:
+        suffix = f"  # {desc}" if desc else ""
+        typer.echo(f"  {model}{suffix}")
     typer.echo()
-    typer.echo("See: https://docs.litellm.ai/docs/providers")
+    typer.echo("See: https://openrouter.ai/models")
 
 
 if __name__ == "__main__":

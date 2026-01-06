@@ -8,7 +8,7 @@ LLM orchestrator - harness-agnostic agent routing. Route tasks to any LLM provid
 | --------- | --------------------------------------------------- |
 | src/orcx/ | Package source                                      |
 | ai/       | AI session context - state tracking across sessions |
-| tests/    | Test suite (TBD)                                    |
+| tests/    | Test suite (pytest)                                 |
 
 ### AI Context Organization
 
@@ -59,8 +59,8 @@ uv run ruff format src/
 # Type check
 uv run ty check src/
 
-# Test (TBD)
-uv run pytest
+# Test
+uv run pytest -v
 ```
 
 ## Verification Steps
@@ -68,7 +68,7 @@ uv run pytest
 - Build: `uv build` (zero errors)
 - Lint: `uv run ruff check src/` (zero errors)
 - Types: `uv run ty check src/` (zero errors)
-- Tests: `uv run pytest` (TBD)
+- Tests: `uv run pytest` (zero failures)
 
 ## Code Standards
 

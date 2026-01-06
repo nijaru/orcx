@@ -1,10 +1,13 @@
 """Agent registry - YAML config load/save."""
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from orcx.config import AGENTS_FILE, ensure_config_dir
+from orcx.errors import AgentValidationError, ConfigFileError
 from orcx.schema import AgentConfig
+
+REQUIRED_AGENT_FIELDS = ["model"]
 
 
 class AgentRegistry(BaseModel):
@@ -32,18 +35,64 @@ class AgentRegistry(BaseModel):
         return list(self.agents.keys())
 
 
+def _validate_agent_config(name: str, config: dict) -> None:
+    """Validate agent config has required fields."""
+    missing = [field for field in REQUIRED_AGENT_FIELDS if not config.get(field)]
+    if missing:
+        raise AgentValidationError(name, missing)
+
+
 def load_registry() -> AgentRegistry:
     """Load agent registry from YAML file."""
     if not AGENTS_FILE.exists():
         return AgentRegistry()
 
-    with AGENTS_FILE.open() as f:
-        data = yaml.safe_load(f) or {}
+    try:
+        with AGENTS_FILE.open() as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        raise ConfigFileError(
+            f"Invalid YAML in agents file: {AGENTS_FILE}",
+            details=str(e),
+        ) from e
+
+    if data is None:
+        return AgentRegistry()
+
+    if not isinstance(data, dict):
+        raise ConfigFileError(
+            f"Agents file must be a YAML mapping: {AGENTS_FILE}",
+            details=f"Got {type(data).__name__} instead",
+        )
+
+    agents_data = data.get("agents", {})
+    if not isinstance(agents_data, dict):
+        raise ConfigFileError(
+            f"'agents' key must be a mapping in: {AGENTS_FILE}",
+            details=f"Got {type(agents_data).__name__} instead",
+        )
 
     agents = {}
-    for name, config in data.get("agents", {}).items():
+    for name, config in agents_data.items():
+        if not isinstance(config, dict):
+            raise ConfigFileError(
+                f"Agent '{name}' must be a mapping in: {AGENTS_FILE}",
+                details=f"Got {type(config).__name__} instead",
+            )
+
+        _validate_agent_config(name, config)
         config["name"] = name
-        agents[name] = AgentConfig.model_validate(config)
+
+        try:
+            agents[name] = AgentConfig.model_validate(config)
+        except ValidationError as e:
+            errors = "; ".join(
+                f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors()
+            )
+            raise ConfigFileError(
+                f"Invalid agent config for '{name}' in: {AGENTS_FILE}",
+                details=errors,
+            ) from e
 
     return AgentRegistry(agents=agents)
 
