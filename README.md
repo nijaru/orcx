@@ -27,20 +27,20 @@ pip install orcx
 export OPENROUTER_API_KEY=sk-or-...
 
 # Run a prompt
-orcx run -m openrouter/deepseek/deepseek-chat "hello"
+orcx run -m openrouter/deepseek/deepseek-v3.2 "hello"
 
 # With file context
-orcx run -m openrouter/deepseek/deepseek-chat -f code.py "review this"
+orcx run -m openrouter/deepseek/deepseek-v3.2 -f code.py "review this"
 
 # Show cost
-orcx run -m openrouter/deepseek/deepseek-chat "hello" --cost
+orcx run -m openrouter/deepseek/deepseek-v3.2 "hello" --cost
 ```
 
 ## Usage
 
 ```bash
 # Direct model (provider/model format)
-orcx run -m openrouter/deepseek/deepseek-chat "hello"
+orcx run -m openrouter/deepseek/deepseek-v3.2 "hello"
 
 # Using model alias (if configured)
 orcx run -m deepseek "hello"
@@ -72,11 +72,12 @@ Config location: `~/.config/orcx/`
 
 ```yaml
 # Default model (used when no -m or -a specified)
-default_model: openrouter/deepseek/deepseek-chat
+default_model: openrouter/deepseek/deepseek-v3.2
 
 # Model aliases for shorthand
 aliases:
-  deepseek: openrouter/deepseek/deepseek-chat
+  deepseek: openrouter/deepseek/deepseek-v3.2
+  sonnet: openrouter/anthropic/claude-4.5-sonnet
 
 # API keys (env vars take precedence)
 keys:
@@ -88,18 +89,18 @@ keys:
 ```yaml
 agents:
   fast:
-    model: openrouter/deepseek/deepseek-chat
+    model: openrouter/deepseek/deepseek-v3.2
     description: Fast, cheap reasoning
     temperature: 0.7
     max_tokens: 4096
 
   reviewer:
-    model: openrouter/deepseek/deepseek-chat
+    model: openrouter/anthropic/claude-4.5-sonnet
     system_prompt: You are a code reviewer. Be concise and actionable.
 
   # With OpenRouter provider preferences
   quality:
-    model: openrouter/deepseek/deepseek-chat
+    model: openrouter/deepseek/deepseek-v3.2
     provider_prefs:
       min_bits: 8 # fp8+ only (excludes fp4)
       ignore: [DeepInfra] # blacklist providers
