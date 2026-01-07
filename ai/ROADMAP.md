@@ -16,9 +16,9 @@ Core routing functionality. Published 2026-01-06.
 | Error handling                        | Done   |
 | 41 tests                              | Done   |
 
-## 0.0.2 (In Progress)
+## 0.0.2 (Released)
 
-Conversation support.
+Conversation support. Published 2026-01-06.
 
 | Feature            | Status |
 | ------------------ | ------ |

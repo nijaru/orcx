@@ -1,6 +1,6 @@
 [project]
 name = "orcx"
-version = "0.0.1"
+version = "0.0.2"
 description = "LLM orchestrator - route prompts to any model via litellm"
 license = "MIT"
 keywords = ["llm", "agents", "orchestration", "ai", "cli", "litellm"]
