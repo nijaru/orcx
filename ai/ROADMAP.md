@@ -16,17 +16,17 @@ Core routing functionality. Published 2026-01-06.
 | Error handling                        | Done   |
 | 41 tests                              | Done   |
 
-## 0.0.2
+## 0.0.2 (In Progress)
 
 Conversation support.
 
-| Feature            | Description                                              |
-| ------------------ | -------------------------------------------------------- |
-| SQLite storage     | Store conversations in `~/.config/orcx/conversations.db` |
-| Continue last      | `-c` to continue previous conversation                   |
-| Resume by ID       | `--resume abc123` to resume specific conversation        |
-| List conversations | `orcx conversations` command                             |
-| Output to file     | `-o response.md`                                         |
+| Feature            | Status |
+| ------------------ | ------ |
+| SQLite storage     | Done   |
+| Continue last      | Done   |
+| Resume by ID       | Done   |
+| List conversations | Done   |
+| Output to file     | Done   |
 
 ## 0.0.3
 

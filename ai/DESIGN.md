@@ -22,14 +22,15 @@ LLM orchestrator enabling any harness (Claude Code, scripts) to route prompts to
 
 ## Components
 
-| Component   | Purpose                       | File                 |
-| ----------- | ----------------------------- | -------------------- |
-| cli.py      | Typer CLI entrypoint          | src/orcx/cli.py      |
-| router.py   | litellm routing, alias expand | src/orcx/router.py   |
-| schema.py   | Pydantic request/response     | src/orcx/schema.py   |
-| registry.py | Agent definitions (YAML)      | src/orcx/registry.py |
-| config.py   | API keys, aliases, defaults   | src/orcx/config.py   |
-| errors.py   | Custom exceptions             | src/orcx/errors.py   |
+| Component       | Purpose                       | File                     |
+| --------------- | ----------------------------- | ------------------------ |
+| cli.py          | Typer CLI entrypoint          | src/orcx/cli.py          |
+| router.py       | litellm routing, alias expand | src/orcx/router.py       |
+| schema.py       | Pydantic request/response     | src/orcx/schema.py       |
+| registry.py     | Agent definitions (YAML)      | src/orcx/registry.py     |
+| config.py       | API keys, aliases, defaults   | src/orcx/config.py       |
+| conversation.py | SQLite conversation storage   | src/orcx/conversation.py |
+| errors.py       | Custom exceptions             | src/orcx/errors.py       |
 
 ## Data Flow
 

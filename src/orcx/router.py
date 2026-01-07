@@ -75,6 +75,7 @@ def resolve_model(request: OrcxRequest) -> tuple[str, AgentConfig | None]:
 def build_messages(
     request: OrcxRequest,
     agent: AgentConfig | None,
+    history: list[dict] | None = None,
 ) -> list[dict[str, str]]:
     """Build message list for LLM call."""
     messages = []
@@ -86,6 +87,10 @@ def build_messages(
     if request.context:
         messages.append({"role": "user", "content": request.context})
         messages.append({"role": "assistant", "content": "Understood."})
+
+    # Add conversation history
+    if history:
+        messages.extend(history)
 
     messages.append({"role": "user", "content": request.prompt})
     return messages
@@ -180,10 +185,10 @@ def _wrap_litellm_error(e: Exception, model: str) -> Exception:
     return e
 
 
-def run(request: OrcxRequest) -> OrcxResponse:
+def run(request: OrcxRequest, history: list[dict] | None = None) -> OrcxResponse:
     """Execute a single LLM request."""
     model, agent = resolve_model(request)
-    messages = build_messages(request, agent)
+    messages = build_messages(request, agent, history)
     params = build_params(request, agent, model, messages, stream=False)
 
     try:
@@ -212,10 +217,10 @@ def run(request: OrcxRequest) -> OrcxResponse:
     )
 
 
-def run_stream(request: OrcxRequest) -> Iterator[str]:
+def run_stream(request: OrcxRequest, history: list[dict] | None = None) -> Iterator[str]:
     """Execute a streaming LLM request, yielding chunks."""
     model, agent = resolve_model(request)
-    messages = build_messages(request, agent)
+    messages = build_messages(request, agent, history)
     params = build_params(request, agent, model, messages, stream=True)
 
     try:

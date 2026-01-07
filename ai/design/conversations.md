@@ -1,5 +1,7 @@
 # Conversation Management Design
 
+**Status: Implemented**
+
 ## Overview
 
 Multi-turn conversation support for orcx. Simple SQLite storage, continue/resume flags.

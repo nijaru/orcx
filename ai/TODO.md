@@ -14,10 +14,13 @@
 - [x] README with examples
 - [x] PyPI metadata - classifiers, URLs
 
-## Ready for 0.0.2
+## Done for 0.0.2
 
-- [ ] Conversations - SQLite storage, `-c` continue, `--resume ID`
+- [x] Conversations - SQLite storage, `-c` continue, `--resume ID`
 - [x] Output to file - `-o FILE`
+
+## Ready for 0.0.3
+
 - [ ] Structured output - `--format json/code/md`
 
 ## Backlog

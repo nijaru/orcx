@@ -1,0 +1,184 @@
+"""Conversation storage via SQLite."""
+
+import json
+import random
+import sqlite3
+import string
+from datetime import UTC, datetime
+from pathlib import Path
+
+from orcx.schema import Conversation, Message
+
+DB_PATH = Path.home() / ".config" / "orcx" / "conversations.db"
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    model TEXT NOT NULL,
+    agent TEXT,
+    title TEXT,
+    messages TEXT NOT NULL,
+    total_tokens INTEGER DEFAULT 0,
+    total_cost REAL DEFAULT 0.0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_updated ON conversations(updated_at DESC);
+"""
+
+
+def _connect() -> sqlite3.Connection:
+    """Get database connection, creating schema if needed."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.executescript(SCHEMA)
+    return conn
+
+
+def _generate_id() -> str:
+    """Generate 4-char base36 ID."""
+    chars = string.ascii_lowercase + string.digits
+    return "".join(random.choice(chars) for _ in range(4))
+
+
+def _now() -> str:
+    """ISO timestamp."""
+    return datetime.now(UTC).isoformat()
+
+
+def create(model: str, agent: str | None = None) -> Conversation:
+    """Create a new conversation."""
+    conv = Conversation(
+        id=_generate_id(),
+        model=model,
+        agent=agent,
+        messages=[],
+        created_at=_now(),
+        updated_at=_now(),
+    )
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO conversations
+                (id, model, agent, title, messages, total_tokens, total_cost,
+                 created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                conv.id,
+                conv.model,
+                conv.agent,
+                conv.title,
+                json.dumps([m.model_dump() for m in conv.messages]),
+                conv.total_tokens,
+                conv.total_cost,
+                conv.created_at,
+                conv.updated_at,
+            ),
+        )
+    return conv
+
+
+def get(conv_id: str) -> Conversation | None:
+    """Get conversation by ID."""
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+    if not row:
+        return None
+    return Conversation(
+        id=row["id"],
+        model=row["model"],
+        agent=row["agent"],
+        title=row["title"],
+        messages=[Message(**m) for m in json.loads(row["messages"])],
+        total_tokens=row["total_tokens"],
+        total_cost=row["total_cost"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def get_last() -> Conversation | None:
+    """Get most recently updated conversation."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM conversations ORDER BY updated_at DESC LIMIT 1"
+        ).fetchone()
+    if not row:
+        return None
+    return Conversation(
+        id=row["id"],
+        model=row["model"],
+        agent=row["agent"],
+        title=row["title"],
+        messages=[Message(**m) for m in json.loads(row["messages"])],
+        total_tokens=row["total_tokens"],
+        total_cost=row["total_cost"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def update(conv: Conversation) -> None:
+    """Update conversation in database."""
+    conv.updated_at = _now()
+    with _connect() as conn:
+        conn.execute(
+            """
+            UPDATE conversations
+            SET model = ?, agent = ?, title = ?, messages = ?,
+                total_tokens = ?, total_cost = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                conv.model,
+                conv.agent,
+                conv.title,
+                json.dumps([m.model_dump() for m in conv.messages]),
+                conv.total_tokens,
+                conv.total_cost,
+                conv.updated_at,
+                conv.id,
+            ),
+        )
+
+
+def list_recent(limit: int = 20) -> list[Conversation]:
+    """List recent conversations."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM conversations ORDER BY updated_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [
+        Conversation(
+            id=row["id"],
+            model=row["model"],
+            agent=row["agent"],
+            title=row["title"],
+            messages=[Message(**m) for m in json.loads(row["messages"])],
+            total_tokens=row["total_tokens"],
+            total_cost=row["total_cost"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+        for row in rows
+    ]
+
+
+def delete(conv_id: str) -> bool:
+    """Delete conversation by ID. Returns True if deleted."""
+    with _connect() as conn:
+        cursor = conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
+    return cursor.rowcount > 0
+
+
+def clean(days: int = 30) -> int:
+    """Delete conversations older than N days. Returns count deleted."""
+    cutoff = datetime.now(UTC).isoformat()
+    with _connect() as conn:
+        cursor = conn.execute(
+            "DELETE FROM conversations WHERE updated_at < datetime(?, ?)",
+            (cutoff, f"-{days} days"),
+        )
+    return cursor.rowcount

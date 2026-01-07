@@ -88,3 +88,24 @@ class OrcxResponse(BaseModel):
     usage: dict | None = None
     cost: float | None = None
     cached: bool = False
+
+
+class Message(BaseModel):
+    """A single message in a conversation."""
+
+    role: str  # "user", "assistant", "system"
+    content: str
+
+
+class Conversation(BaseModel):
+    """A stored conversation."""
+
+    id: str
+    model: str
+    agent: str | None = None
+    title: str | None = None
+    messages: list[Message] = []
+    total_tokens: int = 0
+    total_cost: float = 0.0
+    created_at: str
+    updated_at: str
