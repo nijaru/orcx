@@ -172,8 +172,10 @@ def delete(conv_id: str) -> bool:
 def clean(days: int = 30) -> int:
     """Delete conversations older than N days. Returns count deleted."""
     with _connect() as conn:
+        # Normalize ISO timestamps (replace T with space, strip tz) for comparison
         cursor = conn.execute(
-            "DELETE FROM conversations WHERE updated_at < datetime('now', ?)",
+            """DELETE FROM conversations
+               WHERE substr(replace(updated_at, 'T', ' '), 1, 19) < datetime('now', ?)""",
             (f"-{days} days",),
         )
     return cursor.rowcount
