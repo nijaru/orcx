@@ -8,7 +8,7 @@
 | Published  | [PyPI](https://pypi.org/project/orcx/0.0.1/) | 2026-01-06 |
 | Visibility | Public                                       | 2026-01-06 |
 | Build      | Passing                                      | 2026-01-06 |
-| Tests      | 53 pass                                      | 2026-01-06 |
+| Tests      | 56 pass                                      | 2026-01-06 |
 | Lint       | Clean                                        | 2026-01-06 |
 
 ## Active Work
