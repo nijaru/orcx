@@ -1,8 +1,8 @@
 # Roadmap
 
-## 0.0.1 (Current)
+## 0.0.1 (Released)
 
-Core routing functionality.
+Core routing functionality. Published 2026-01-06.
 
 | Feature                               | Status |
 | ------------------------------------- | ------ |

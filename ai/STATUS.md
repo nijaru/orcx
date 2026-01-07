@@ -2,16 +2,18 @@
 
 ## Current State
 
-| Metric  | Value   | Updated    |
-| ------- | ------- | ---------- |
-| Version | 0.0.1   | 2026-01-06 |
-| Build   | Passing | 2026-01-06 |
-| Tests   | 41 pass | 2026-01-06 |
-| Lint    | Clean   | 2026-01-06 |
+| Metric     | Value                                        | Updated    |
+| ---------- | -------------------------------------------- | ---------- |
+| Version    | 0.0.1                                        | 2026-01-06 |
+| Published  | [PyPI](https://pypi.org/project/orcx/0.0.1/) | 2026-01-06 |
+| Visibility | Public                                       | 2026-01-06 |
+| Build      | Passing                                      | 2026-01-06 |
+| Tests      | 41 pass                                      | 2026-01-06 |
+| Lint       | Clean                                        | 2026-01-06 |
 
 ## Active Work
 
-Ready for 0.0.1 release. Publish via `gh release create v0.0.1`.
+v0.0.1 released. Next: 0.0.2 (conversations).
 
 ## What's Working
 
@@ -34,4 +36,4 @@ None
 
 - Primary use case: Claude Code delegating to cheaper/specialized models
 - Keep it simple - don't become a full agent framework
-- Conversations planned for 0.0.2
+- Repo moved to github.com/nijaru/orcx
