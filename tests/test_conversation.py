@@ -46,7 +46,7 @@ class TestGetConversation:
 
 class TestGetLast:
     def test_get_last_returns_most_recent(self, temp_db):
-        conv1 = conversation.create(model="model1")
+        conversation.create(model="model1")
         conv2 = conversation.create(model="model2")
         last = conversation.get_last()
         assert last is not None
@@ -101,3 +101,37 @@ class TestDelete:
 
     def test_delete_missing(self, temp_db):
         assert conversation.delete("xxxx") is False
+
+
+class TestClean:
+    def test_clean_deletes_old_conversations(self, temp_db):
+        conv = conversation.create(model="test/model")
+        # Manually backdate the conversation
+        with conversation._connect() as conn:
+            conn.execute(
+                "UPDATE conversations SET updated_at = datetime('now', '-60 days') WHERE id = ?",
+                (conv.id,),
+            )
+        # Clean conversations older than 30 days
+        count = conversation.clean(days=30)
+        assert count == 1
+        assert conversation.get(conv.id) is None
+
+    def test_clean_keeps_recent_conversations(self, temp_db):
+        conv = conversation.create(model="test/model")
+        count = conversation.clean(days=30)
+        assert count == 0
+        assert conversation.get(conv.id) is not None
+
+    def test_clean_respects_days_parameter(self, temp_db):
+        conv = conversation.create(model="test/model")
+        # Backdate to 10 days ago
+        with conversation._connect() as conn:
+            conn.execute(
+                "UPDATE conversations SET updated_at = datetime('now', '-10 days') WHERE id = ?",
+                (conv.id,),
+            )
+        # Should not delete (10 < 30)
+        assert conversation.clean(days=30) == 0
+        # Should delete (10 > 5)
+        assert conversation.clean(days=5) == 1
