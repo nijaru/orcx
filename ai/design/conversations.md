@@ -88,9 +88,9 @@ class Conversation(BaseModel):
 
 ## ID Generation
 
-- 6 character base36 (lowercase alphanumeric)
-- Generated on first message
-- Example: `a1b2c3`, `x9y8z7`
+- 4 character base36 (lowercase alphanumeric)
+- ~1.6M possibilities, retry on collision
+- Example: `a1b2`, `x9y8`
 
 ## Implementation
 

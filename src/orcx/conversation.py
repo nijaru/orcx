@@ -49,35 +49,31 @@ def _now() -> str:
 
 def create(model: str, agent: str | None = None) -> Conversation:
     """Create a new conversation."""
-    conv = Conversation(
-        id=_generate_id(),
-        model=model,
-        agent=agent,
-        messages=[],
-        created_at=_now(),
-        updated_at=_now(),
-    )
+    now = _now()
     with _connect() as conn:
-        conn.execute(
-            """
-            INSERT INTO conversations
-                (id, model, agent, title, messages, total_tokens, total_cost,
-                 created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                conv.id,
-                conv.model,
-                conv.agent,
-                conv.title,
-                json.dumps([m.model_dump() for m in conv.messages]),
-                conv.total_tokens,
-                conv.total_cost,
-                conv.created_at,
-                conv.updated_at,
-            ),
-        )
-    return conv
+        for _ in range(10):  # Retry on ID collision
+            conv_id = _generate_id()
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO conversations
+                        (id, model, agent, title, messages, total_tokens, total_cost,
+                         created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (conv_id, model, agent, None, "[]", 0, 0.0, now, now),
+                )
+                return Conversation(
+                    id=conv_id,
+                    model=model,
+                    agent=agent,
+                    messages=[],
+                    created_at=now,
+                    updated_at=now,
+                )
+            except sqlite3.IntegrityError:
+                continue
+        raise RuntimeError("Failed to generate unique conversation ID")
 
 
 def get(conv_id: str) -> Conversation | None:
@@ -175,10 +171,9 @@ def delete(conv_id: str) -> bool:
 
 def clean(days: int = 30) -> int:
     """Delete conversations older than N days. Returns count deleted."""
-    cutoff = datetime.now(UTC).isoformat()
     with _connect() as conn:
         cursor = conn.execute(
-            "DELETE FROM conversations WHERE updated_at < datetime(?, ?)",
-            (cutoff, f"-{days} days"),
+            "DELETE FROM conversations WHERE updated_at < datetime('now', ?)",
+            (f"-{days} days",),
         )
     return cursor.rowcount
