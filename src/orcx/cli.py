@@ -2,6 +2,7 @@
 
 import sys
 import traceback
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -104,7 +105,6 @@ def _handle_error(e: Exception) -> None:
 
 def _read_files(paths: list[str]) -> str:
     """Read and format file contents for context."""
-    from pathlib import Path
 
     parts = []
     for path_str in paths:
@@ -135,6 +135,7 @@ def run(
         list[str] | None,
         typer.Option("--file", "-f", help="Files to include"),
     ] = None,
+    output: str = typer.Option(None, "--output", "-o", help="Write response to file"),
     no_stream: bool = typer.Option(False, "--no-stream", help="Disable streaming"),
     show_cost: bool = typer.Option(False, "--cost", help="Show cost after response"),
     json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
@@ -170,17 +171,21 @@ def run(
 
     try:
         if request.stream:
+            chunks = []
             for chunk in router.run_stream(request):
+                chunks.append(chunk)
                 typer.echo(chunk, nl=False)
-            typer.echo()  # Final newline
+            typer.echo()
+            if output:
+                Path(output).write_text("".join(chunks))
         else:
             response = router.run(request)
-            if json_out:
-                typer.echo(response.model_dump_json(indent=2))
-            else:
-                typer.echo(response.content)
-                if show_cost and response.cost:
-                    typer.echo(f"\n[cost: ${response.cost:.6f}]", err=True)
+            content = response.model_dump_json(indent=2) if json_out else response.content
+            typer.echo(content)
+            if output:
+                Path(output).write_text(content)
+            if show_cost and response.cost:
+                typer.echo(f"\n[cost: ${response.cost:.6f}]", err=True)
     except Exception as e:
         _handle_error(e)
 

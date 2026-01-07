@@ -17,7 +17,7 @@
 ## Ready for 0.0.2
 
 - [ ] Conversations - SQLite storage, `-c` continue, `--resume ID`
-- [ ] Output to file - `-o FILE`
+- [x] Output to file - `-o FILE`
 - [ ] Structured output - `--format json/code/md`
 
 ## Backlog
