@@ -8,6 +8,7 @@ LLM orchestrator - route prompts to any model via [litellm](https://github.com/B
 
 - **100+ providers** via litellm - OpenRouter, OpenAI, Anthropic, Google, etc.
 - **Agent presets** - Save model + system prompt + parameters as reusable configs
+- **Conversations** - Multi-turn with `-c` continue and `--resume ID`
 - **OpenRouter routing** - Control quantization, provider selection, sorting
 - **Cost tracking** - See what each request costs
 - **Simple** - Just route prompts, not a full agent framework
@@ -62,7 +63,43 @@ orcx run -m deepseek "hello" --json
 
 # Custom system prompt
 orcx run -m deepseek -s "You are a pirate" "greet me"
+
+# Save response to file
+orcx run -m deepseek "explain async" -o response.md
 ```
+
+## Conversations
+
+Conversations are saved automatically. Continue or resume them:
+
+```bash
+# Start a conversation (prints ID like [a1b2])
+orcx run -m deepseek "explain python decorators"
+# [a1b2]
+
+# Continue last conversation
+orcx run -c "show me an example"
+
+# Resume specific conversation
+orcx run --resume a1b2 "what about class decorators?"
+
+# Don't save this exchange
+orcx run --no-save -m deepseek "quick question"
+
+# List recent conversations
+orcx conversations
+
+# Show full conversation
+orcx conversations show a1b2
+
+# Delete conversation
+orcx conversations delete a1b2
+
+# Clean old conversations (default: 30 days)
+orcx conversations clean --days 7
+```
+
+Conversations are stored in `~/.config/orcx/conversations.db`.
 
 ## Configuration
 
@@ -129,8 +166,10 @@ OpenRouter-specific routing options:
 orcx run "prompt"        # Run prompt (uses default model/agent)
 orcx run -m MODEL "..."  # Use specific model or alias
 orcx run -a AGENT "..."  # Use agent preset
+orcx run -c "..."        # Continue last conversation
 orcx agents              # List configured agents
-orcx models              # List common models
+orcx models              # Show model format and examples
+orcx conversations       # List/manage conversations
 orcx --version           # Show version
 orcx --debug             # Show full tracebacks on error
 ```
@@ -144,6 +183,10 @@ orcx --debug             # Show full tracebacks on error
 | `--system`    | `-s`  | System prompt                 |
 | `--context`   |       | Context to prepend            |
 | `--file`      | `-f`  | Files to include (repeatable) |
+| `--output`    | `-o`  | Write response to file        |
+| `--continue`  | `-c`  | Continue last conversation    |
+| `--resume`    |       | Resume conversation by ID     |
+| `--no-save`   |       | Don't save conversation       |
 | `--no-stream` |       | Disable streaming output      |
 | `--cost`      |       | Show cost after response      |
 | `--json`      | `-j`  | Output as JSON                |
