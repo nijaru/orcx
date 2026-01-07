@@ -28,7 +28,11 @@ Conversation support. Published 2026-01-06.
 | List conversations | Done   |
 | Output to file     | Done   |
 
-## 0.0.3
+## 0.0.3 (Released)
+
+Version fix (0.0.2 had wrong `--version` output). Published 2026-01-06.
+
+## 0.0.4
 
 Structured output.
 

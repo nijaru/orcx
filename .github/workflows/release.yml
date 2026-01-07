@@ -13,6 +13,25 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - name: Verify version consistency
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          PYPROJECT_VERSION=$(grep '^version = ' pyproject.toml | cut -d'"' -f2)
+          INIT_VERSION=$(grep '__version__' src/orcx/__init__.py | cut -d'"' -f2)
+          TAG_VERSION="${GIT_TAG#v}"
+          echo "pyproject.toml: $PYPROJECT_VERSION"
+          echo "__init__.py: $INIT_VERSION"
+          echo "Git tag: $TAG_VERSION"
+          if [ "$PYPROJECT_VERSION" != "$INIT_VERSION" ]; then
+            echo "ERROR: Version mismatch between pyproject.toml and __init__.py"
+            exit 1
+          fi
+          if [ "$PYPROJECT_VERSION" != "$TAG_VERSION" ]; then
+            echo "ERROR: Version mismatch between pyproject.toml and git tag"
+            exit 1
+          fi
+
       - name: Build package
         run: uv build
 

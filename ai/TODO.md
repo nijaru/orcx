@@ -19,7 +19,7 @@
 - [x] Conversations - SQLite storage, `-c` continue, `--resume ID`
 - [x] Output to file - `-o FILE`
 
-## Ready for 0.0.3
+## Ready for 0.0.4
 
 - [ ] Structured output - `--format json/code/md`
 

@@ -4,8 +4,8 @@
 
 | Metric     | Value                                        | Updated    |
 | ---------- | -------------------------------------------- | ---------- |
-| Version    | 0.0.2                                        | 2026-01-06 |
-| Published  | [PyPI](https://pypi.org/project/orcx/0.0.2/) | 2026-01-06 |
+| Version    | 0.0.3                                        | 2026-01-06 |
+| Published  | [PyPI](https://pypi.org/project/orcx/0.0.3/) | 2026-01-06 |
 | Visibility | Public                                       | 2026-01-06 |
 | Build      | Passing                                      | 2026-01-06 |
 | Tests      | 56 pass                                      | 2026-01-06 |
@@ -13,7 +13,7 @@
 
 ## Active Work
 
-v0.0.2 released. Next: 0.0.3 (structured output).
+v0.0.3 released (0.0.2 had wrong version in --version output).
 
 ## What's Working
 
