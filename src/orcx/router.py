@@ -1,6 +1,7 @@
 """LLM routing via litellm."""
 
 import contextlib
+import warnings
 from collections.abc import Iterator
 
 import litellm
@@ -18,6 +19,10 @@ from orcx.registry import load_registry
 from orcx.schema import AgentConfig, OrcxRequest, OrcxResponse
 
 litellm.suppress_debug_info = True  # type: ignore[assignment]
+
+# Suppress litellm's internal Pydantic serialization warnings
+# These occur when OpenRouter returns fewer fields than litellm expects
+warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValue.*")
 
 
 def extract_provider(model: str) -> str:
