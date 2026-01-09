@@ -12,11 +12,11 @@ from orcx.errors import (
     AgentNotFoundError,
     AuthenticationError,
     ConfigFileError,
-    ConnectionError,
     InvalidModelFormatError,
     MissingApiKeyError,
     NoModelSpecifiedError,
     OrcxError,
+    ProviderConnectionError,
     RateLimitError,
 )
 from orcx.registry import load_registry
@@ -24,6 +24,21 @@ from orcx.schema import OrcxRequest
 
 # Global debug flag
 _debug = False
+
+# Maximum file size to read (10 MB)
+MAX_FILE_SIZE = 10 * 1024 * 1024
+
+# Exception type to exit code mapping
+_EXIT_CODES: dict[type, int] = {
+    MissingApiKeyError: 2,
+    AuthenticationError: 2,
+    RateLimitError: 3,
+    ProviderConnectionError: 4,
+    AgentNotFoundError: 5,
+    InvalidModelFormatError: 5,
+    NoModelSpecifiedError: 5,
+    ConfigFileError: 6,
+}
 
 
 def version_callback(value: bool) -> None:
@@ -63,49 +78,24 @@ def _handle_error(e: Exception) -> None:
         typer.echo(traceback.format_exc(), err=True)
         raise typer.Exit(1) from None
 
-    if isinstance(e, MissingApiKeyError):
-        typer.echo(f"Error: {e.message}", err=True)
-        raise typer.Exit(2) from None
+    # Check specific exception types via mapping
+    for exc_type, exit_code in _EXIT_CODES.items():
+        if isinstance(e, exc_type):
+            typer.echo(f"Error: {e.message}", err=True)
+            raise typer.Exit(exit_code) from None
 
-    if isinstance(e, AuthenticationError):
-        typer.echo(f"Error: {e.message}", err=True)
-        raise typer.Exit(2) from None
-
-    if isinstance(e, RateLimitError):
-        typer.echo(f"Error: {e.message}", err=True)
-        raise typer.Exit(3) from None
-
-    if isinstance(e, ConnectionError):
-        typer.echo(f"Error: {e.message}", err=True)
-        raise typer.Exit(4) from None
-
-    if isinstance(e, AgentNotFoundError):
-        typer.echo(f"Error: {e.message}", err=True)
-        raise typer.Exit(5) from None
-
-    if isinstance(e, InvalidModelFormatError):
-        typer.echo(f"Error: {e.message}", err=True)
-        raise typer.Exit(5) from None
-
-    if isinstance(e, NoModelSpecifiedError):
-        typer.echo(f"Error: {e.message}", err=True)
-        raise typer.Exit(5) from None
-
-    if isinstance(e, ConfigFileError):
-        typer.echo(f"Error: {e.message}", err=True)
-        raise typer.Exit(6) from None
-
+    # Generic OrcxError fallback
     if isinstance(e, OrcxError):
         typer.echo(f"Error: {e.message}", err=True)
         raise typer.Exit(1) from None
 
+    # Unknown exception
     typer.echo(f"Error: {e}", err=True)
     raise typer.Exit(1) from None
 
 
 def _read_files(paths: list[str]) -> str:
     """Read and format file contents for context."""
-
     parts = []
     for path_str in paths:
         path = Path(path_str)
@@ -116,11 +106,18 @@ def _read_files(paths: list[str]) -> str:
             typer.echo(f"Error: Not a file: {path_str}", err=True)
             raise typer.Exit(1)
         try:
+            file_size = path.stat().st_size
+            if file_size > MAX_FILE_SIZE:
+                typer.echo(
+                    f"Error: File too large: {path_str} ({file_size // 1024 // 1024}MB > 10MB)",
+                    err=True,
+                )
+                raise typer.Exit(1)
             content = path.read_text()
             parts.append(f"# {path.name}\n```\n{content}\n```")
-        except Exception as e:
+        except OSError as e:
             typer.echo(f"Error reading {path_str}: {e}", err=True)
-            raise typer.Exit(1) from None
+            raise typer.Exit(1) from e
     return "\n\n".join(parts)
 
 
@@ -228,7 +225,7 @@ def _save_conversation(conv, request, prompt, response_content, response, conver
 
         try:
             resolved_model, _ = resolve_model(request)
-        except Exception:
+        except (NoModelSpecifiedError, InvalidModelFormatError, AgentNotFoundError):
             resolved_model = request.model or "unknown"
         conv = conversation.create(model=resolved_model, agent=request.agent)
 
@@ -312,7 +309,8 @@ def conversations_list(ctx: typer.Context) -> None:
         tokens = f"{conv.total_tokens}tok" if conv.total_tokens else ""
         cost = f"${conv.total_cost:.4f}" if conv.total_cost else ""
         info = f" ({tokens} {cost})".strip() if tokens or cost else ""
-        typer.echo(f"{conv.id}  {conv.model:<30}  {title}{info}")
+        model_display = conv.model[:30] if len(conv.model) > 30 else conv.model
+        typer.echo(f"{conv.id}  {model_display:<30}  {title}{info}")
 
 
 @conversations_app.command("show")

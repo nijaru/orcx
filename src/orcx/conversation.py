@@ -26,13 +26,20 @@ CREATE TABLE IF NOT EXISTS conversations (
 CREATE INDEX IF NOT EXISTS idx_updated ON conversations(updated_at DESC);
 """
 
+_schema_initialized_for: str | None = None
+
 
 def _connect() -> sqlite3.Connection:
     """Get database connection, creating schema if needed."""
+    global _schema_initialized_for
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.executescript(SCHEMA)
+    # Re-init schema if DB path changed (e.g., in tests)
+    db_path_str = str(DB_PATH)
+    if _schema_initialized_for != db_path_str:
+        conn.executescript(SCHEMA)
+        _schema_initialized_for = db_path_str
     return conn
 
 
@@ -45,6 +52,35 @@ def _generate_id() -> str:
 def _now() -> str:
     """ISO timestamp."""
     return datetime.now(UTC).isoformat()
+
+
+class ConversationCorruptedError(Exception):
+    """Raised when conversation data cannot be parsed."""
+
+    def __init__(self, conv_id: str, details: str):
+        self.conv_id = conv_id
+        super().__init__(f"Corrupted conversation {conv_id}: {details}")
+
+
+def _row_to_conversation(row: sqlite3.Row) -> Conversation:
+    """Convert database row to Conversation object."""
+    conv_id = row["id"]
+    try:
+        messages = [Message(**m) for m in json.loads(row["messages"])]
+    except (json.JSONDecodeError, TypeError, KeyError) as e:
+        raise ConversationCorruptedError(conv_id, str(e)) from e
+
+    return Conversation(
+        id=conv_id,
+        model=row["model"],
+        agent=row["agent"],
+        title=row["title"],
+        messages=messages,
+        total_tokens=row["total_tokens"],
+        total_cost=row["total_cost"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
 
 
 def create(model: str, agent: str | None = None) -> Conversation:
@@ -82,17 +118,7 @@ def get(conv_id: str) -> Conversation | None:
         row = conn.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,)).fetchone()
     if not row:
         return None
-    return Conversation(
-        id=row["id"],
-        model=row["model"],
-        agent=row["agent"],
-        title=row["title"],
-        messages=[Message(**m) for m in json.loads(row["messages"])],
-        total_tokens=row["total_tokens"],
-        total_cost=row["total_cost"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-    )
+    return _row_to_conversation(row)
 
 
 def get_last() -> Conversation | None:
@@ -103,24 +129,14 @@ def get_last() -> Conversation | None:
         ).fetchone()
     if not row:
         return None
-    return Conversation(
-        id=row["id"],
-        model=row["model"],
-        agent=row["agent"],
-        title=row["title"],
-        messages=[Message(**m) for m in json.loads(row["messages"])],
-        total_tokens=row["total_tokens"],
-        total_cost=row["total_cost"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-    )
+    return _row_to_conversation(row)
 
 
 def update(conv: Conversation) -> None:
-    """Update conversation in database."""
+    """Update conversation in database. Raises ValueError if not found."""
     conv.updated_at = _now()
     with _connect() as conn:
-        conn.execute(
+        cursor = conn.execute(
             """
             UPDATE conversations
             SET model = ?, agent = ?, title = ?, messages = ?,
@@ -138,6 +154,8 @@ def update(conv: Conversation) -> None:
                 conv.id,
             ),
         )
+    if cursor.rowcount == 0:
+        raise ValueError(f"Conversation {conv.id} not found")
 
 
 def list_recent(limit: int = 20) -> list[Conversation]:
@@ -146,20 +164,7 @@ def list_recent(limit: int = 20) -> list[Conversation]:
         rows = conn.execute(
             "SELECT * FROM conversations ORDER BY updated_at DESC LIMIT ?", (limit,)
         ).fetchall()
-    return [
-        Conversation(
-            id=row["id"],
-            model=row["model"],
-            agent=row["agent"],
-            title=row["title"],
-            messages=[Message(**m) for m in json.loads(row["messages"])],
-            total_tokens=row["total_tokens"],
-            total_cost=row["total_cost"],
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
-        )
-        for row in rows
-    ]
+    return [_row_to_conversation(row) for row in rows]
 
 
 def delete(conv_id: str) -> bool:
@@ -173,9 +178,10 @@ def clean(days: int = 30) -> int:
     """Delete conversations older than N days. Returns count deleted."""
     with _connect() as conn:
         # Normalize ISO timestamps (replace T with space, strip tz) for comparison
+        # Use datetime('now', 'utc', ...) since updated_at stores UTC timestamps
         cursor = conn.execute(
             """DELETE FROM conversations
-               WHERE substr(replace(updated_at, 'T', ' '), 1, 19) < datetime('now', ?)""",
+               WHERE substr(replace(updated_at, 'T', ' '), 1, 19) < datetime('now', 'utc', ?)""",
             (f"-{days} days",),
         )
     return cursor.rowcount

@@ -1,6 +1,6 @@
 """Core schemas for orcx protocol."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 QUANT_BY_BITS: dict[int, list[str]] = {
     4: ["int4", "fp4"],
@@ -59,7 +59,7 @@ class AgentConfig(BaseModel):
     provider: str | None = None
     description: str | None = None
     system_prompt: str | None = None
-    fallback_models: list[str] = []
+    fallback_models: list[str] = Field(default_factory=list)
     max_tokens: int | None = None
     temperature: float | None = None
     provider_prefs: ProviderPrefs | None = None
@@ -104,7 +104,7 @@ class Conversation(BaseModel):
     model: str
     agent: str | None = None
     title: str | None = None
-    messages: list[Message] = []
+    messages: list[Message] = Field(default_factory=list)
     total_tokens: int = 0
     total_cost: float = 0.0
     created_at: str

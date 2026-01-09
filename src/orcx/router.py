@@ -10,7 +10,6 @@ from orcx.config import ENV_KEY_MAP, load_config
 from orcx.errors import (
     AgentNotFoundError,
     AuthenticationError,
-    ConnectionError,
     InvalidModelFormatError,
     NoModelSpecifiedError,
     RateLimitError,
@@ -22,7 +21,9 @@ litellm.suppress_debug_info = True  # type: ignore[assignment]
 
 # Suppress litellm's internal Pydantic serialization warnings
 # These occur when OpenRouter returns fewer fields than litellm expects
-warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValue.*")
+warnings.filterwarnings(
+    "ignore", message=".*PydanticSerializationUnexpectedValue.*", module="litellm"
+)
 
 
 def extract_provider(model: str) -> str:
@@ -157,14 +158,16 @@ def build_params(
 
 def _wrap_litellm_error(e: Exception, model: str) -> Exception:
     """Convert litellm exceptions to orcx errors."""
+    import os
+
+    from orcx.errors import MissingApiKeyError, ProviderConnectionError, ProviderUnavailableError
+
     provider = extract_provider(model)
     env_var = ENV_KEY_MAP.get(provider)
 
     if isinstance(e, litellm.AuthenticationError):
-        msg = str(e)
-        if "API key" in msg.lower() or "auth" in msg.lower():
-            from orcx.errors import MissingApiKeyError
-
+        # Check if env var is actually missing vs other auth errors
+        if env_var and not os.environ.get(env_var):
             return MissingApiKeyError(provider, env_var)
         return AuthenticationError(provider, str(e))
 
@@ -178,13 +181,11 @@ def _wrap_litellm_error(e: Exception, model: str) -> Exception:
         return RateLimitError(provider, retry_after)
 
     if isinstance(e, litellm.APIConnectionError):
-        return ConnectionError(provider, str(e))
+        return ProviderConnectionError(provider, str(e))
 
     if isinstance(e, litellm.APIError):
         status = getattr(e, "status_code", None)
         if status and status >= 500:
-            from orcx.errors import ProviderUnavailableError
-
             return ProviderUnavailableError(provider, status)
 
     return e

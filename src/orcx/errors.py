@@ -104,7 +104,7 @@ class RateLimitError(ProviderError):
         super().__init__(msg)
 
 
-class ConnectionError(ProviderError):
+class ProviderConnectionError(ProviderError):
     """Network/connection error."""
 
     def __init__(self, provider: str, details: str | None = None):
@@ -113,6 +113,10 @@ class ConnectionError(ProviderError):
         if details:
             msg += f": {details}"
         super().__init__(msg, details)
+
+
+# Alias for backwards compatibility
+ConnectionError = ProviderConnectionError
 
 
 class ProviderUnavailableError(ProviderError):
