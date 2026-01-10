@@ -15,7 +15,7 @@ from orcx.errors import (
     RateLimitError,
 )
 from orcx.registry import load_registry
-from orcx.schema import AgentConfig, OrcxRequest, OrcxResponse
+from orcx.schema import AgentConfig, OrcxRequest, OrcxResponse, ProviderPrefs
 
 litellm.suppress_debug_info = True  # type: ignore[assignment]
 
@@ -102,6 +102,27 @@ def build_messages(
     return messages
 
 
+def get_effective_prefs(model: str, agent: AgentConfig | None) -> ProviderPrefs | None:
+    """Get the effective provider prefs for a model/agent combination.
+
+    Only returns prefs for openrouter/* models. Returns None otherwise.
+    """
+    if extract_provider(model) != "openrouter":
+        return None
+
+    config = load_config()
+    agent_prefs = agent.provider_prefs if agent else None
+    global_prefs = config.default_provider_prefs
+
+    if agent_prefs and global_prefs:
+        return agent_prefs.merge_with(global_prefs)
+    elif agent_prefs:
+        return agent_prefs
+    elif global_prefs:
+        return global_prefs
+    return None
+
+
 def build_params(
     request: OrcxRequest,
     agent: AgentConfig | None,
@@ -124,9 +145,9 @@ def build_params(
     elif agent and agent.temperature is not None:
         params["temperature"] = agent.temperature
 
-    # OpenRouter provider preferences
-    if agent and agent.provider_prefs:
-        prefs = agent.provider_prefs
+    # OpenRouter provider preferences (only for openrouter/* models)
+    prefs = get_effective_prefs(model, agent)
+    if prefs:
         provider_obj: dict = {}
 
         # Quantization

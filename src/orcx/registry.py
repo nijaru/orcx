@@ -84,7 +84,17 @@ def load_registry() -> AgentRegistry:
         config["name"] = name
 
         try:
-            agents[name] = AgentConfig.model_validate(config)
+            agent = AgentConfig.model_validate(config)
+            agents[name] = agent
+
+            # Validate provider prefs and print warnings
+            if agent.provider_prefs:
+                import sys
+
+                from orcx.schema import validate_provider_prefs
+
+                for warning in validate_provider_prefs(agent.provider_prefs, f"agent '{name}'"):
+                    print(f"Warning: {warning}", file=sys.stderr)
         except ValidationError as e:
             errors = "; ".join(
                 f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors()

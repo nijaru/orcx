@@ -1,5 +1,7 @@
 """Configuration management for orcx."""
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
 
@@ -7,6 +9,7 @@ import yaml
 from pydantic import BaseModel, Field, ValidationError
 
 from orcx.errors import ConfigFileError
+from orcx.schema import ProviderPrefs
 
 CONFIG_DIR = Path.home() / ".config" / "orcx"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
@@ -31,8 +34,9 @@ class OrcxConfig(BaseModel):
 
     default_agent: str | None = None
     default_model: str | None = None
+    default_provider_prefs: ProviderPrefs | None = None
     keys: ProviderKeys = Field(default_factory=ProviderKeys)
-    aliases: dict[str, str] = Field(default_factory=dict)  # model shortcuts
+    aliases: dict[str, str] = Field(default_factory=dict)
 
 
 ENV_KEY_MAP: dict[str, str] = {
@@ -82,6 +86,18 @@ def load_config() -> OrcxConfig:
             ) from e
 
     config.keys = _resolve_keys(config.keys)
+
+    # Validate provider prefs and print warnings
+    if config.default_provider_prefs:
+        import sys
+
+        from orcx.schema import validate_provider_prefs
+
+        for warning in validate_provider_prefs(
+            config.default_provider_prefs, "default_provider_prefs"
+        ):
+            print(f"Warning: {warning}", file=sys.stderr)
+
     return config
 
 

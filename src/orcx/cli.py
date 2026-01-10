@@ -29,7 +29,7 @@ _debug = False
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
 # Exception type to exit code mapping
-_EXIT_CODES: dict[type, int] = {
+_EXIT_CODES: dict[type[OrcxError], int] = {
     MissingApiKeyError: 2,
     AuthenticationError: 2,
     RateLimitError: 3,
@@ -78,10 +78,12 @@ def _handle_error(e: Exception) -> None:
         typer.echo(traceback.format_exc(), err=True)
         raise typer.Exit(1) from None
 
-    # Check specific exception types via mapping
+    # Check specific exception types via mapping (all are OrcxError subclasses)
     for exc_type, exit_code in _EXIT_CODES.items():
         if isinstance(e, exc_type):
-            typer.echo(f"Error: {e.message}", err=True)
+            # exc_type is a subclass of OrcxError, so e has .message
+            orcx_err: OrcxError = e
+            typer.echo(f"Error: {orcx_err.message}", err=True)
             raise typer.Exit(exit_code) from None
 
     # Generic OrcxError fallback
@@ -206,13 +208,52 @@ def run(
             typer.echo(content)
             if output:
                 Path(output).write_text(content)
-            if show_cost and response.cost:
-                typer.echo(f"\n[cost: ${response.cost:.6f}]", err=True)
+            if show_cost:
+                _show_cost_info(request, response, router)
             # Save conversation
             if not no_save:
                 _save_conversation(conv, request, prompt, response.content, response, conversation)
     except Exception as e:
         _handle_error(e)
+
+
+def _show_cost_info(request, response, router) -> None:
+    """Show cost and provider prefs info."""
+    parts = []
+
+    # Model and tokens
+    if response.usage:
+        tokens = response.usage.get("total_tokens", 0)
+        parts.append(f"model: {response.model} | tokens: {tokens}")
+    else:
+        parts.append(f"model: {response.model}")
+
+    # Cost
+    if response.cost:
+        parts.append(f"cost: ${response.cost:.6f}")
+
+    # Provider prefs (only for openrouter)
+    try:
+        resolved_model, agent = router.resolve_model(request)
+        prefs = router.get_effective_prefs(resolved_model, agent)
+        if prefs:
+            pref_parts = []
+            if prefs.min_bits:
+                pref_parts.append(f"min_bits={prefs.min_bits}")
+            if prefs.ignore:
+                pref_parts.append(f"ignore={prefs.ignore}")
+            if prefs.prefer:
+                pref_parts.append(f"prefer={prefs.prefer}")
+            if prefs.only:
+                pref_parts.append(f"only={prefs.only}")
+            if prefs.sort:
+                pref_parts.append(f"sort={prefs.sort}")
+            if pref_parts:
+                parts.append(f"prefs: {', '.join(pref_parts)}")
+    except Exception:
+        pass  # Don't fail cost display if prefs can't be resolved
+
+    typer.echo(f"\n[{' | '.join(parts)}]", err=True)
 
 
 def _save_conversation(conv, request, prompt, response_content, response, conversation):

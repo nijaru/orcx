@@ -111,3 +111,110 @@ class TestProviderPrefsResolveQuantizations:
         result = prefs.resolve_quantizations()
         # After filtering, nothing left
         assert result == [] or result is None
+
+
+class TestProviderPrefsMergeWith:
+    """Tests for ProviderPrefs.merge_with()."""
+
+    def test_merge_with_none_returns_self(self) -> None:
+        """Merging with None should return self unchanged."""
+        prefs = ProviderPrefs(min_bits=8, ignore=["DeepInfra"])
+        result = prefs.merge_with(None)
+        assert result.min_bits == 8
+        assert result.ignore == ["DeepInfra"]
+
+    def test_self_overrides_other_for_scalar_fields(self) -> None:
+        """Self values should override other for scalar fields."""
+        agent = ProviderPrefs(min_bits=16, sort="latency")
+        global_ = ProviderPrefs(min_bits=8, sort="price")
+        result = agent.merge_with(global_)
+        # Agent's min_bits is higher (more restrictive), so it wins
+        assert result.min_bits == 16
+        # Agent's sort overrides global
+        assert result.sort == "latency"
+
+    def test_min_bits_takes_higher_value(self) -> None:
+        """min_bits should take the higher (more restrictive) value."""
+        agent = ProviderPrefs(min_bits=8)
+        global_ = ProviderPrefs(min_bits=16)
+        result = agent.merge_with(global_)
+        # Global is more restrictive
+        assert result.min_bits == 16
+
+    def test_ignore_lists_are_unioned(self) -> None:
+        """ignore lists should be merged (union)."""
+        agent = ProviderPrefs(ignore=["DeepInfra", "Chutes"])
+        global_ = ProviderPrefs(ignore=["SiliconFlow", "DeepInfra"])
+        result = agent.merge_with(global_)
+        # Union, preserving order (agent first)
+        assert result.ignore == ["DeepInfra", "Chutes", "SiliconFlow"]
+
+    def test_exclude_quants_are_unioned(self) -> None:
+        """exclude_quants lists should be merged (union)."""
+        agent = ProviderPrefs(exclude_quants=["fp4"])
+        global_ = ProviderPrefs(exclude_quants=["int4", "fp4"])
+        result = agent.merge_with(global_)
+        assert result.exclude_quants == ["fp4", "int4"]
+
+    def test_prefer_lists_preserve_order(self) -> None:
+        """prefer lists should merge with agent first."""
+        agent = ProviderPrefs(prefer=["AtlasCloud"])
+        global_ = ProviderPrefs(prefer=["NovitaAI", "Phala"])
+        result = agent.merge_with(global_)
+        # Agent providers come first
+        assert result.prefer == ["AtlasCloud", "NovitaAI", "Phala"]
+
+    def test_only_is_overridden_not_merged(self) -> None:
+        """only should be overridden by agent, not merged."""
+        agent = ProviderPrefs(only=["Together"])
+        global_ = ProviderPrefs(only=["Azure", "AWS"])
+        result = agent.merge_with(global_)
+        # Agent overrides completely
+        assert result.only == ["Together"]
+
+    def test_only_falls_back_to_global(self) -> None:
+        """only should fall back to global if agent doesn't set it."""
+        agent = ProviderPrefs(min_bits=8)
+        global_ = ProviderPrefs(only=["Azure", "AWS"])
+        result = agent.merge_with(global_)
+        assert result.only == ["Azure", "AWS"]
+
+    def test_order_is_overridden_not_merged(self) -> None:
+        """order should be overridden by agent, not merged."""
+        agent = ProviderPrefs(order=["A", "B"])
+        global_ = ProviderPrefs(order=["C", "D"])
+        result = agent.merge_with(global_)
+        assert result.order == ["A", "B"]
+
+    def test_quantizations_is_overridden_not_merged(self) -> None:
+        """quantizations should be overridden by agent, not merged."""
+        agent = ProviderPrefs(quantizations=["fp16"])
+        global_ = ProviderPrefs(quantizations=["fp8", "fp16", "bf16"])
+        result = agent.merge_with(global_)
+        assert result.quantizations == ["fp16"]
+
+    def test_allow_fallbacks_agent_false_overrides(self) -> None:
+        """allow_fallbacks=False should override global True."""
+        agent = ProviderPrefs(allow_fallbacks=False)
+        global_ = ProviderPrefs(allow_fallbacks=True)
+        result = agent.merge_with(global_)
+        assert result.allow_fallbacks is False
+
+    def test_full_merge_scenario(self) -> None:
+        """Test realistic merge of agent and global prefs."""
+        agent = ProviderPrefs(
+            ignore=["Chutes"],
+            prefer=["AtlasCloud"],
+        )
+        global_ = ProviderPrefs(
+            min_bits=8,
+            ignore=["SiliconFlow", "DeepInfra", "Mancer"],
+            sort="price",
+        )
+        result = agent.merge_with(global_)
+
+        assert result.min_bits == 8  # From global
+        assert result.sort == "price"  # From global
+        assert result.prefer == ["AtlasCloud"]  # From agent
+        # ignore is unioned
+        assert set(result.ignore or []) == {"Chutes", "SiliconFlow", "DeepInfra", "Mancer"}

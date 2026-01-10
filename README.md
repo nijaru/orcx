@@ -116,6 +116,13 @@ aliases:
   deepseek: deepseek/deepseek-v3.2
   sonnet: anthropic/claude-4.5-sonnet
 
+# Global provider preferences (OpenRouter only)
+# Applied to all openrouter/* models, merged with agent-specific prefs
+default_provider_prefs:
+  min_bits: 8
+  ignore: [SiliconFlow, DeepInfra]
+  sort: price
+
 # API keys (env vars take precedence)
 keys:
   openrouter: sk-or-...
@@ -147,7 +154,7 @@ agents:
 
 ## Provider Preferences
 
-OpenRouter-specific routing options:
+OpenRouter-specific routing options. Can be set globally in `config.yaml` (`default_provider_prefs`) or per-agent in `agents.yaml` (`provider_prefs`). Agent prefs are merged with global prefs (agent takes precedence).
 
 | Option           | Type | Description                               |
 | ---------------- | ---- | ----------------------------------------- |
@@ -159,6 +166,8 @@ OpenRouter-specific routing options:
 | `prefer`         | list | Soft preference (tries first, falls back) |
 | `order`          | list | Explicit order                            |
 | `sort`           | str  | "price", "throughput", "latency"          |
+
+Use `--cost` flag to see which prefs were applied to a request.
 
 ## Commands
 
