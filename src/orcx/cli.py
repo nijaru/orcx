@@ -7,7 +7,7 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 import click
 import typer
@@ -27,9 +27,6 @@ from orcx.errors import (
 )
 from orcx.registry import load_registry
 from orcx.schema import Conversation, OrcxRequest, OrcxResponse
-
-if TYPE_CHECKING:
-    from orcx import conversation as conv_module
 
 # Global debug flag
 _debug = False
@@ -84,10 +81,12 @@ class DefaultGroup(TyperGroup):
         """Override to treat unknown commands as prompts."""
         try:
             return super().resolve_command(ctx, args)
-        except click.UsageError:
-            # Unknown command - treat first arg as prompt, route to run command
-            cmd = self.get_command(ctx, "run")
-            return "run", cmd, args
+        except click.UsageError as e:
+            # Only catch "No such command" errors, let others propagate
+            if "No such command" in str(e):
+                cmd = self.get_command(ctx, "run")
+                return "run", cmd, args
+            raise
 
 
 app = typer.Typer(
@@ -187,7 +186,7 @@ def _validate_prompt(prompt: str | None) -> str:
 
 
 def _load_conversation(
-    resume: str | None, continue_last: bool, conversation: conv_module
+    resume: str | None, continue_last: bool, conversation: ModuleType
 ) -> Conversation | None:
     """Load existing conversation if resuming or continuing."""
     if resume:
@@ -205,6 +204,15 @@ def _load_conversation(
     return None
 
 
+def _write_output(output: str, content: str) -> None:
+    """Write content to output file with error handling."""
+    try:
+        Path(output).write_text(content)
+    except OSError as e:
+        typer.echo(f"Error writing to {output}: {e}", err=True)
+        raise typer.Exit(1) from e
+
+
 def _execute_streaming(
     request: OrcxRequest,
     history: list[dict[str, str]],
@@ -219,7 +227,7 @@ def _execute_streaming(
     typer.echo()
     response_content = "".join(chunks)
     if output:
-        Path(output).write_text(response_content)
+        _write_output(output, response_content)
     return response_content
 
 
@@ -236,7 +244,7 @@ def _execute_blocking(
     content = response.model_dump_json(indent=2) if json_out else response.content
     typer.echo(content)
     if output:
-        Path(output).write_text(content)
+        _write_output(output, content)
     if show_cost:
         _show_cost_info(request, response, router)
     return response.content, response
@@ -356,8 +364,8 @@ def _show_cost_info(request: OrcxRequest, response: OrcxResponse, router: Module
                 pref_parts.append(f"sort={prefs.sort}")
             if pref_parts:
                 parts.append(f"prefs: {', '.join(pref_parts)}")
-    except Exception:
-        pass  # Don't fail cost display if prefs can't be resolved
+    except (NoModelSpecifiedError, InvalidModelFormatError, AgentNotFoundError):
+        pass  # Expected when model can't be resolved for cost display
 
     typer.echo(f"\n[{' | '.join(parts)}]", err=True)
 
@@ -368,7 +376,7 @@ def _save_conversation(
     prompt: str,
     response_content: str,
     response: OrcxResponse | None,
-    conversation: conv_module,
+    conversation: ModuleType,
 ) -> None:
     """Save or update conversation after exchange."""
     from orcx.schema import Message
