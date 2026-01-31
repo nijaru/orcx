@@ -7,6 +7,7 @@ import traceback
 from pathlib import Path
 from typing import Annotated
 
+import click
 import typer
 
 from orcx import __version__
@@ -49,10 +50,24 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+class DefaultGroup(typer.core.TyperGroup):
+    """Typer group that treats unknown commands as prompts for the run command."""
+
+    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+        """Override to treat unknown commands as prompts."""
+        try:
+            return super().resolve_command(ctx, args)
+        except click.UsageError:
+            # Unknown command - treat first arg as prompt, route to run command
+            cmd = self.get_command(ctx, "run")
+            return "run", cmd, args
+
+
 app = typer.Typer(
     name="orcx",
     help="LLM orchestrator - route prompts to any model",
     no_args_is_help=True,
+    cls=DefaultGroup,
 )
 
 
@@ -67,7 +82,10 @@ def main(
         typer.Option("--debug", "-d", help="Show full tracebacks on error"),
     ] = False,
 ) -> None:
-    """LLM orchestrator - route prompts to any model."""
+    """LLM orchestrator - route prompts to any model.
+
+    Usage: orcx "prompt" or orcx run "prompt"
+    """
     global _debug
     _debug = debug
 
@@ -125,28 +143,22 @@ def _read_files(paths: list[str]) -> str:
     return "\n\n".join(parts)
 
 
-@app.command()
-def run(
-    prompt: str = typer.Argument(None, help="Prompt to send"),
-    agent: str = typer.Option(None, "--agent", "-a", help="Agent preset to use"),
-    model: str = typer.Option(None, "--model", "-m", help="Model to use directly"),
-    system: str = typer.Option(None, "--system", "-s", help="System prompt"),
-    context: str = typer.Option(None, "--context", help="Context to prepend"),
-    files: Annotated[
-        list[str] | None,
-        typer.Option("--file", "-f", help="Files to include"),
-    ] = None,
-    output: str = typer.Option(None, "--output", "-o", help="Write response to file"),
-    continue_last: bool = typer.Option(
-        False, "--continue", "-c", help="Continue last conversation"
-    ),
-    resume: str = typer.Option(None, "--resume", help="Resume conversation by ID"),
-    no_save: bool = typer.Option(False, "--no-save", help="Don't save conversation"),
-    no_stream: bool = typer.Option(False, "--no-stream", help="Disable streaming"),
-    show_cost: bool = typer.Option(False, "--cost", help="Show cost after response"),
-    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
+def _run_prompt(
+    prompt: str | None = None,
+    agent: str | None = None,
+    model: str | None = None,
+    system: str | None = None,
+    context: str | None = None,
+    files: list[str] | None = None,
+    output: str | None = None,
+    continue_last: bool = False,
+    resume: str | None = None,
+    no_save: bool = False,
+    no_stream: bool = False,
+    show_cost: bool = False,
+    json_out: bool = False,
 ) -> None:
-    """Run a prompt against an agent or model."""
+    """Core prompt execution logic shared by run command and direct invocation."""
     from orcx import conversation, router
 
     # Read from stdin if no prompt and stdin has data
@@ -217,6 +229,45 @@ def run(
                 _save_conversation(conv, request, prompt, response.content, response, conversation)
     except Exception as e:
         _handle_error(e)
+
+
+@app.command()
+def run(
+    prompt: str = typer.Argument(None, help="Prompt to send"),
+    agent: str = typer.Option(None, "--agent", "-a", help="Agent preset to use"),
+    model: str = typer.Option(None, "--model", "-m", help="Model to use directly"),
+    system: str = typer.Option(None, "--system", "-s", help="System prompt"),
+    context: str = typer.Option(None, "--context", help="Context to prepend"),
+    files: Annotated[
+        list[str] | None,
+        typer.Option("--file", "-f", help="Files to include"),
+    ] = None,
+    output: str = typer.Option(None, "--output", "-o", help="Write response to file"),
+    continue_last: bool = typer.Option(
+        False, "--continue", "-c", help="Continue last conversation"
+    ),
+    resume: str = typer.Option(None, "--resume", help="Resume conversation by ID"),
+    no_save: bool = typer.Option(False, "--no-save", help="Don't save conversation"),
+    no_stream: bool = typer.Option(False, "--no-stream", help="Disable streaming"),
+    show_cost: bool = typer.Option(False, "--cost", help="Show cost after response"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
+) -> None:
+    """Run a prompt against an agent or model."""
+    _run_prompt(
+        prompt=prompt,
+        agent=agent,
+        model=model,
+        system=system,
+        context=context,
+        files=files,
+        output=output,
+        continue_last=continue_last,
+        resume=resume,
+        no_save=no_save,
+        no_stream=no_stream,
+        show_cost=show_cost,
+        json_out=json_out,
+    )
 
 
 def _show_cost_info(request, response, router) -> None:
