@@ -27,45 +27,54 @@ pip install orcx
 # Set your API key
 export OPENROUTER_API_KEY=sk-or-...
 
-# Run a prompt
+# Run a prompt (uses default model from config)
+orcx "hello"
+
+# With specific model
 orcx run -m openrouter/deepseek/deepseek-v3.2 "hello"
 
 # With file context
-orcx run -m openrouter/deepseek/deepseek-v3.2 -f code.py "review this"
+orcx -f code.py "review this"
 
 # Show cost
-orcx run -m openrouter/deepseek/deepseek-v3.2 "hello" --cost
+orcx "hello" --cost
 ```
 
 ## Usage
 
 ```bash
-# Direct model (provider/model format)
-orcx run -m openrouter/deepseek/deepseek-v3.2 "hello"
+# Direct prompt (uses default model)
+orcx "hello"
+
+# With specific model (provider/model format)
+orcx -m openrouter/deepseek/deepseek-v3.2 "hello"
 
 # Using model alias (if configured)
-orcx run -m deepseek "hello"
+orcx -m deepseek "hello"
 
 # Using agent preset
-orcx run -a reviewer "review this code"
+orcx -a reviewer "review this code"
 
 # With file context
-orcx run -a reviewer -f src/main.py "review this"
+orcx -a reviewer -f src/main.py "review this"
 
 # Multiple files
-orcx run -m deepseek -f code.py -f tests.py "explain the tests"
+orcx -m deepseek -f code.py -f tests.py "explain the tests"
 
 # Pipe from stdin
-cat code.py | orcx run -a reviewer "review this"
+cat code.py | orcx -a reviewer "review this"
 
 # JSON output (includes usage/cost)
-orcx run -m deepseek "hello" --json
+orcx -m deepseek "hello" --json
 
 # Custom system prompt
-orcx run -m deepseek -s "You are a pirate" "greet me"
+orcx -m deepseek -s "You are a pirate" "greet me"
 
 # Save response to file
-orcx run -m deepseek "explain async" -o response.md
+orcx -m deepseek "explain async" -o response.md
+
+# Explicit run subcommand (equivalent to direct prompt)
+orcx run -m deepseek "hello"
 ```
 
 ## Conversations
@@ -74,17 +83,17 @@ Conversations are saved automatically. Continue or resume them:
 
 ```bash
 # Start a conversation (prints ID like [a1b2])
-orcx run -m deepseek "explain python decorators"
+orcx -m deepseek "explain python decorators"
 # [a1b2]
 
 # Continue last conversation
-orcx run -c "show me an example"
+orcx -c "show me an example"
 
 # Resume specific conversation
-orcx run --resume a1b2 "what about class decorators?"
+orcx --resume a1b2 "what about class decorators?"
 
 # Don't save this exchange
-orcx run --no-save -m deepseek "quick question"
+orcx --no-save -m deepseek "quick question"
 
 # List recent conversations
 orcx conversations
@@ -172,10 +181,11 @@ Use `--cost` flag to see which prefs were applied to a request.
 ## Commands
 
 ```bash
-orcx run "prompt"        # Run prompt (uses default model/agent)
-orcx run -m MODEL "..."  # Use specific model or alias
-orcx run -a AGENT "..."  # Use agent preset
-orcx run -c "..."        # Continue last conversation
+orcx "prompt"            # Run prompt (uses default model/agent)
+orcx -m MODEL "..."      # Use specific model or alias
+orcx -a AGENT "..."      # Use agent preset
+orcx -c "..."            # Continue last conversation
+orcx run "prompt"        # Explicit run subcommand (same as above)
 orcx agents              # List configured agents
 orcx models              # Show model format and examples
 orcx conversations       # List/manage conversations
