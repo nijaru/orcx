@@ -1,5 +1,7 @@
 """Conversation storage via SQLite."""
 
+from __future__ import annotations
+
 import json
 import random
 import sqlite3

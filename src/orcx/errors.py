@@ -1,5 +1,7 @@
 """Error types for orcx."""
 
+from __future__ import annotations
+
 
 class OrcxError(Exception):
     """Base exception for orcx errors."""

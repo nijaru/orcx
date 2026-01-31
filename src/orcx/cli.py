@@ -1,5 +1,7 @@
 """CLI entrypoint for orcx."""
 
+from __future__ import annotations
+
 import sys
 import traceback
 from pathlib import Path

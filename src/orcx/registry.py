@@ -1,5 +1,7 @@
 """Agent registry - YAML config load/save."""
 
+from __future__ import annotations
+
 import yaml
 from pydantic import BaseModel, ValidationError
 
