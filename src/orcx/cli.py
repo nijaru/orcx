@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import sys
 import traceback
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from types import ModuleType
+from typing import TYPE_CHECKING, Annotated
 
 import click
 import typer
+from typer.core import TyperGroup
 
 from orcx import __version__
 from orcx.errors import (
@@ -23,7 +26,10 @@ from orcx.errors import (
     RateLimitError,
 )
 from orcx.registry import load_registry
-from orcx.schema import OrcxRequest
+from orcx.schema import Conversation, OrcxRequest, OrcxResponse
+
+if TYPE_CHECKING:
+    from orcx import conversation as conv_module
 
 # Global debug flag
 _debug = False
@@ -44,16 +50,37 @@ _EXIT_CODES: dict[type[OrcxError], int] = {
 }
 
 
+@dataclass
+class RunOptions:
+    """Options for running a prompt."""
+
+    prompt: str | None = None
+    agent: str | None = None
+    model: str | None = None
+    system: str | None = None
+    context: str | None = None
+    files: list[str] | None = None
+    output: str | None = None
+    continue_last: bool = False
+    resume: str | None = None
+    no_save: bool = False
+    no_stream: bool = False
+    show_cost: bool = False
+    json_out: bool = False
+
+
 def version_callback(value: bool) -> None:
     if value:
         typer.echo(f"orcx {__version__}")
         raise typer.Exit()
 
 
-class DefaultGroup(typer.core.TyperGroup):
+class DefaultGroup(TyperGroup):
     """Typer group that treats unknown commands as prompts for the run command."""
 
-    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
+    def resolve_command(
+        self, ctx: click.Context, args: list[str]
+    ) -> tuple[str | None, click.Command | None, list[str]]:
         """Override to treat unknown commands as prompts."""
         try:
             return super().resolve_command(ctx, args)
@@ -143,25 +170,8 @@ def _read_files(paths: list[str]) -> str:
     return "\n\n".join(parts)
 
 
-def _run_prompt(
-    prompt: str | None = None,
-    agent: str | None = None,
-    model: str | None = None,
-    system: str | None = None,
-    context: str | None = None,
-    files: list[str] | None = None,
-    output: str | None = None,
-    continue_last: bool = False,
-    resume: str | None = None,
-    no_save: bool = False,
-    no_stream: bool = False,
-    show_cost: bool = False,
-    json_out: bool = False,
-) -> None:
-    """Core prompt execution logic shared by run command and direct invocation."""
-    from orcx import conversation, router
-
-    # Read from stdin if no prompt and stdin has data
+def _validate_prompt(prompt: str | None) -> str:
+    """Validate and return prompt, reading from stdin if needed."""
     if prompt is None:
         if not sys.stdin.isatty():
             prompt = sys.stdin.read().strip()
@@ -173,31 +183,85 @@ def _run_prompt(
         typer.echo("Error: Empty prompt", err=True)
         raise typer.Exit(1)
 
-    # Load or create conversation
-    conv = None
+    return prompt
+
+
+def _load_conversation(
+    resume: str | None, continue_last: bool, conversation: conv_module
+) -> Conversation | None:
+    """Load existing conversation if resuming or continuing."""
     if resume:
         conv = conversation.get(resume)
         if not conv:
             typer.echo(f"Error: Conversation '{resume}' not found", err=True)
             raise typer.Exit(1)
-    elif continue_last:
+        return conv
+    if continue_last:
         conv = conversation.get_last()
         if not conv:
             typer.echo("Error: No conversation to continue", err=True)
             raise typer.Exit(1)
+        return conv
+    return None
+
+
+def _execute_streaming(
+    request: OrcxRequest,
+    history: list[dict[str, str]],
+    output: str | None,
+    router: ModuleType,
+) -> str:
+    """Execute request with streaming output. Returns response content."""
+    chunks = []
+    for chunk in router.run_stream(request, history=history):
+        chunks.append(chunk)
+        typer.echo(chunk, nl=False)
+    typer.echo()
+    response_content = "".join(chunks)
+    if output:
+        Path(output).write_text(response_content)
+    return response_content
+
+
+def _execute_blocking(
+    request: OrcxRequest,
+    history: list[dict[str, str]],
+    output: str | None,
+    json_out: bool,
+    show_cost: bool,
+    router: ModuleType,
+) -> tuple[str, OrcxResponse]:
+    """Execute request without streaming. Returns (content, response)."""
+    response = router.run(request, history=history)
+    content = response.model_dump_json(indent=2) if json_out else response.content
+    typer.echo(content)
+    if output:
+        Path(output).write_text(content)
+    if show_cost:
+        _show_cost_info(request, response, router)
+    return response.content, response
+
+
+def _run_prompt(opts: RunOptions) -> None:
+    """Core prompt execution logic shared by run command and direct invocation."""
+    from orcx import conversation, router
+
+    prompt = _validate_prompt(opts.prompt)
+    conv = _load_conversation(opts.resume, opts.continue_last, conversation)
 
     # Build context from files
-    if files:
-        file_context = _read_files(files)
+    context = opts.context
+    if opts.files:
+        file_context = _read_files(opts.files)
         context = f"{context}\n\n{file_context}" if context else file_context
 
     request = OrcxRequest(
         prompt=prompt,
-        agent=agent if not conv else (agent or conv.agent),
-        model=model if not conv else (model or conv.model),
-        system_prompt=system,
+        agent=opts.agent if not conv else (opts.agent or conv.agent),
+        model=opts.model if not conv else (opts.model or conv.model),
+        system_prompt=opts.system,
         context=context,
-        stream=not no_stream and not json_out,
+        stream=not opts.no_stream and not opts.json_out,
     )
 
     # Build message history from conversation
@@ -205,28 +269,15 @@ def _run_prompt(
 
     try:
         if request.stream:
-            chunks = []
-            for chunk in router.run_stream(request, history=history):
-                chunks.append(chunk)
-                typer.echo(chunk, nl=False)
-            typer.echo()
-            response_content = "".join(chunks)
-            if output:
-                Path(output).write_text(response_content)
-            # Save conversation (no cost info in streaming)
-            if not no_save:
-                _save_conversation(conv, request, prompt, response_content, None, conversation)
+            response_content = _execute_streaming(request, history, opts.output, router)
+            response = None
         else:
-            response = router.run(request, history=history)
-            content = response.model_dump_json(indent=2) if json_out else response.content
-            typer.echo(content)
-            if output:
-                Path(output).write_text(content)
-            if show_cost:
-                _show_cost_info(request, response, router)
-            # Save conversation
-            if not no_save:
-                _save_conversation(conv, request, prompt, response.content, response, conversation)
+            response_content, response = _execute_blocking(
+                request, history, opts.output, opts.json_out, opts.show_cost, router
+            )
+
+        if not opts.no_save:
+            _save_conversation(conv, request, prompt, response_content, response, conversation)
     except Exception as e:
         _handle_error(e)
 
@@ -254,23 +305,25 @@ def run(
 ) -> None:
     """Run a prompt against an agent or model."""
     _run_prompt(
-        prompt=prompt,
-        agent=agent,
-        model=model,
-        system=system,
-        context=context,
-        files=files,
-        output=output,
-        continue_last=continue_last,
-        resume=resume,
-        no_save=no_save,
-        no_stream=no_stream,
-        show_cost=show_cost,
-        json_out=json_out,
+        RunOptions(
+            prompt=prompt,
+            agent=agent,
+            model=model,
+            system=system,
+            context=context,
+            files=files,
+            output=output,
+            continue_last=continue_last,
+            resume=resume,
+            no_save=no_save,
+            no_stream=no_stream,
+            show_cost=show_cost,
+            json_out=json_out,
+        )
     )
 
 
-def _show_cost_info(request, response, router) -> None:
+def _show_cost_info(request: OrcxRequest, response: OrcxResponse, router: ModuleType) -> None:
     """Show cost and provider prefs info."""
     parts = []
 
@@ -309,7 +362,14 @@ def _show_cost_info(request, response, router) -> None:
     typer.echo(f"\n[{' | '.join(parts)}]", err=True)
 
 
-def _save_conversation(conv, request, prompt, response_content, response, conversation):
+def _save_conversation(
+    conv: Conversation | None,
+    request: OrcxRequest,
+    prompt: str,
+    response_content: str,
+    response: OrcxResponse | None,
+    conversation: conv_module,
+) -> None:
     """Save or update conversation after exchange."""
     from orcx.schema import Message
 
