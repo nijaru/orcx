@@ -1,5 +1,7 @@
 """Core schemas for orcx protocol."""
 
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
 
 QUANT_BY_BITS: dict[int, list[str]] = {
